@@ -193,6 +193,7 @@ def gauss_elimination(matrix, vector):
 	# Si pivotes no nulos y no hay incompatibilidad
 	if filas == columnas:
 		print("El sistema tiene una única solución.")
+		return x[:filas] 
 	else:
 		print("El sistema puede tener varias soluciones.")
 	return x[:filas] if filas <= columnas else x
