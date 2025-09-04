@@ -1,7 +1,9 @@
+# warnings_1.py
 from PyQt5.QtWidgets import QMessageBox
 
-def mostrarAviso(valor):
+def mostrarAviso(mensaje, titulo="Aviso"):
     msg = QMessageBox()
-    msg.setWindowTitle("Error!")
-    msg.setText("Campo vacio o Caracter inválido!" + " " + str(valor))
+    msg.setIcon(QMessageBox.Warning)
+    msg.setWindowTitle(titulo)
+    msg.setText(str(mensaje))
     msg.exec_()
