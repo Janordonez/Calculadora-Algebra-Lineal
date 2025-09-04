@@ -4,6 +4,7 @@ import warnings_1
 from imprimirConsola import imprimirConsola
 import matriz
 import sys
+from fractions import Fraction
 
 class guiManager:
 
@@ -65,7 +66,7 @@ class guiManager:
                 for celda in fila:
                     try:
                         valor = 0
-                        valor = int(celda.text())
+                        valor = Fraction(celda.text())
                     except ValueError:
                         warnings_1.mostrarAviso(valor)
                         return
