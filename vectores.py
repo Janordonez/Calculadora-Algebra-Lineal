@@ -29,8 +29,9 @@ def operar_vectores(vectores, nombres):
         print("1. Operar entre dos vectores (+, -, *)")
         print("2. Multiplicar uno o varios vectores por un escalar")
         print("3. Determinar combinación lineal")
-        print("4. Salir")
-        opcion = input("Seleccione opción (1/2/3/4): ").strip()
+        print("4. Resolver sistema de ecuaciones con vectores")
+        print("5. Salir")
+        opcion = input("Seleccione opción (1/2/3/4/5): ").strip()
         if opcion == '1':
             if len(vectores) + len(resultados) < 2:
                 print("Se requieren al menos dos vectores para operar.")
@@ -131,6 +132,97 @@ def operar_vectores(vectores, nombres):
                 except ImportError:
                     print("Se requiere la librería sympy para esta operación.")
         elif opcion == '4':
+            # Resolver sistema de ecuaciones con vectores
+            m = int(input("Número de variables (incógnitas): "))
+            n = int(input("Número de ecuaciones (tamaño del vector, filas): "))
+            matriz = []
+            print(f"\nVas a ingresar {n} ecuaciones, cada una con {m} variables y el término independiente.")
+            print("Ejemplo para 2 ecuaciones y 2 variables:")
+            print("Ecuación 1: coef_x1 coef_x2 término_independiente")
+            print("Ecuación 2: coef_x1 coef_x2 término_independiente")
+            for i in range(n):
+                while True:
+                    fila = input(f"Ecuación {i+1}: Ingresa los {m} coeficientes y el término independiente separados por espacio: ").strip().split()
+                    if len(fila) != m+1:
+                        print(f"Cantidad incorrecta. Debes ingresar exactamente {m} coeficientes y 1 término independiente. Intenta de nuevo.")
+                    else:
+                        matriz.append([Fraction(x) for x in fila])
+                        break
+            # Separar coeficientes y términos independientes
+            coef_matrix = [[matriz[i][j] for i in range(n)] for j in range(m)]  # columnas: cada variable
+            b = [matriz[i][-1] for i in range(n)]
+            print("\nVectores individuales de cada variable:")
+            for idx, col in enumerate(coef_matrix):
+                print(f"Vector x{idx+1}:")
+                for val in col:
+                    print(f"| {val} |")
+                print()
+            print("Vector de términos independientes:")
+            for val in b:
+                print(f"| {val} |")
+            print()
+            # Matriz aumentada por columnas
+            print("Matriz aumentada inicial (columnas: x1, x2, ..., xn, término independiente):")
+            aug = [[matriz[i][j] for j in range(m)] + [matriz[i][-1]] for i in range(n)]
+            for fila in aug:
+                print("[ " + "  ".join(str(x) for x in fila) + " ]")
+            from sympy import Matrix
+            aug_matrix = Matrix(aug)
+            print("\n--- Paso a paso de reducción de filas ---")
+            matriz_pasos = aug_matrix.copy()
+            nrows, ncols = matriz_pasos.shape
+            for i in range(min(nrows, ncols-1)):
+                # Buscar pivote
+                if matriz_pasos[i, i] == 0:
+                    for k in range(i+1, nrows):
+                        if matriz_pasos[k, i] != 0:
+                            matriz_pasos.row_swap(i, k)
+                            print(f"f{i+1} <-> f{k+1} (Intercambio de filas)")
+                            for fila in matriz_pasos.tolist():
+                                print("[ " + "  ".join(str(x) for x in fila) + " ]")
+                            break
+                # Hacer pivote 1
+                pivote = matriz_pasos[i, i]
+                if pivote != 0 and pivote != 1:
+                    matriz_pasos.row_op(i, lambda x, _: x / pivote)
+                    print(f"f{i+1} -> (1/{pivote})*f{i+1}")
+                    for fila in matriz_pasos.tolist():
+                        print("[ " + "  ".join(str(x) for x in fila) + " ]")
+                # Eliminar debajo
+                for k in range(i+1, nrows):
+                    factor = matriz_pasos[k, i]
+                    if factor != 0:
+                        matriz_pasos.row_op(k, lambda x, j: x - factor * matriz_pasos[i, j])
+                        print(f"f{k+1} -> f{k+1} - ({factor})*f{i+1}")
+                        for fila in matriz_pasos.tolist():
+                            print("[ " + "  ".join(str(x) for x in fila) + " ]")
+            print("\nMatriz en forma escalonada reducida (rref):")
+            rref, pivots = aug_matrix.rref()
+            for fila in rref.tolist():
+                print("[ " + "  ".join(str(x) for x in fila) + " ]")
+            # Mostrar pivotes y variables en formato usuario
+            print("Pivotes en columnas:", [p+1 for p in pivots])
+            basicas = [p+1 for p in pivots]
+            libres = [i+1 for i in range(m) if (i+1) not in basicas]
+            print("Variables básicas:", [f"x{b}" for b in basicas])
+            print("Variables libres:", [f"x{l}" for l in libres])
+            # Tipo de solución
+            inconsistente = False
+            for i in range(n):
+                fila = rref.row(i)
+                if all(val == 0 for val in fila[:-1]) and fila[-1] != 0:
+                    inconsistente = True
+                    break
+            if inconsistente:
+                print("\nEl sistema es inconsistente(No tiene solucion).")
+            elif len(basicas) == m:
+                print("\nEl sistema es consistente con finitas soluciones.")
+            elif len(basicas) < m:
+                print("\nEl sistema es consistente con infinitas soluciones.")
+            else:
+                print("\nNo se pudo determinar el tipo de solución.")
+            print("\n--- Fin del procedimiento ---\n")
+        elif opcion == '5':
             print("Saliendo del módulo de operaciones de vectores.")
             break
         else:
