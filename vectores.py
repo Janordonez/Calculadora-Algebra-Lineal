@@ -1,26 +1,6 @@
-from fractions import Fraction
+from fractions import Fraction 
 
 
-def pedir_vectores():
-    print("\n--- Ingreso de vectores ---")
-    tam = int(input("Tamaño del vector (número de filas): "))
-    cant = int(input("Cantidad de vectores a trabajar: "))
-    nombres = [chr(97 + i) for i in range(cant)]  # 'a', 'b', 'c', ...
-    vectores = []
-    for idx, nombre in enumerate(nombres):
-        print(f"\nValores para el vector \033[1m{nombre}\033[0m:")
-        vec = []
-        for j in range(tam):
-            val = input(f"Fila {j+1}: ")
-            vec.append(Fraction(val))
-        vectores.append(vec)
-    print("\n--- Vectores creados ---")
-    for idx, nombre in enumerate(nombres):
-        print(f"\033[1m{nombre}\033[0m =")
-        for val in vectores[idx]:
-            print(f"|  {val}  |")
-        print()
-    return vectores, nombres
 
 def operar_vectores(vectores, nombres):
     resultados = {}
@@ -30,111 +10,94 @@ def operar_vectores(vectores, nombres):
         print("2. Multiplicar uno o varios vectores por un escalar")
         print("3. Determinar combinación lineal")
         print("4. Resolver sistema de ecuaciones con vectores")
-        print("5. Salir")
-        opcion = input("Seleccione opción (1/2/3/4/5): ").strip()
+        print("5. Multiplicación de matriz por vector como combinación lineal de columnas")
+        print("6. Salir")
+        opcion = input("Seleccione opción (1/2/3/4/5/6): ").strip()
+
         if opcion == '1':
-            if len(vectores) + len(resultados) < 2:
-                print("Se requieren al menos dos vectores para operar.")
-                continue
-            print("\nOperaciones disponibles entre dos vectores:")
-            print("+ : Suma")
-            print("- : Resta")
-            print("* : Producto elemento a elemento")
+            tam = int(input("Tamaño de los vectores: "))
+            print("Ingrese los valores del primer vector:")
+            v1 = [Fraction(input(f"Elemento {i+1}: ")) for i in range(tam)]
+            print("Ingrese los valores del segundo vector:")
+            v2 = [Fraction(input(f"Elemento {i+1}: ")) for i in range(tam)]
             op = input("Ingrese el signo de la operación (+, -, *): ").strip()
-            todos_nombres = nombres + list(resultados.keys())
-            print(f"Seleccione los vectores a operar (por nombre, ej: a b):")
-            seleccion = input(f"Nombres de los dos vectores ({' '.join(todos_nombres)}): ").strip().split()
-            if len(seleccion) != 2 or seleccion[0] not in todos_nombres or seleccion[1] not in todos_nombres:
-                print("Selección inválida.")
-                continue
-            v1 = vectores[nombres.index(seleccion[0])] if seleccion[0] in nombres else resultados[seleccion[0]]
-            v2 = vectores[nombres.index(seleccion[1])] if seleccion[1] in nombres else resultados[seleccion[1]]
-            if len(v1) != len(v2):
-                print("Los vectores deben tener el mismo tamaño.")
-                continue
             if op == '+':
-                resultado = [v1[i] + v2[i] for i in range(len(v1))]
+                resultado = [v1[i] + v2[i] for i in range(tam)]
                 op_str = '+'
             elif op == '-':
-                resultado = [v1[i] - v2[i] for i in range(len(v1))]
+                resultado = [v1[i] - v2[i] for i in range(tam)]
                 op_str = '-'
             elif op == '*':
-                resultado = [v1[i] * v2[i] for i in range(len(v1))]
+                resultado = [v1[i] * v2[i] for i in range(tam)]
                 op_str = '*'
             else:
                 print("Operación no soportada.")
-                continue
-            nombre_res = f"r{len(resultados)+1}"
-            resultados[nombre_res] = resultado
-            print(f"\nResultado de \033[1m{seleccion[0]} {op_str} {seleccion[1]}\033[0m =")
+                break
+            print(f"\nResultado de v1 {op_str} v2 =")
             for val in resultado:
                 print(f"|  {val}  |")
-            print(f"Guardado como vector \033[1m{nombre_res}\033[0m")
+
         elif opcion == '2':
-            print("\nVectores disponibles para multiplicar por escalar:")
-            todos_nombres = nombres + list(resultados.keys())
-            print(" ".join(todos_nombres))
-            seleccion = input("Ingrese los nombres de los vectores a multiplicar (separados por espacio): ").strip().split()
+            tam = int(input("Tamaño de los vectores: "))
+            cantidad = int(input("Cantidad de vectores a multiplicar por escalar: "))
+            vectores = []
+            for idx in range(cantidad):
+                print(f"Ingrese los valores del vector {idx+1}:")
+                vec = [Fraction(input(f"Elemento {i+1}: ")) for i in range(tam)]
+                vectores.append(vec)
             escalar = Fraction(input("Ingrese el escalar: "))
-            for nombre in seleccion:
-                if nombre not in todos_nombres:
-                    print(f"Vector {nombre} no existe.")
-                    continue
-                vec = vectores[nombres.index(nombre)] if nombre in nombres else resultados[nombre]
+            for idx, vec in enumerate(vectores):
                 resultado = [escalar * v for v in vec]
-                nombre_res = f"r{len(resultados)+1}"
-                resultados[nombre_res] = resultado
-                print(f"\nResultado de \033[1m{escalar}*{nombre}\033[0m =")
+                print(f"\nResultado de {escalar}*vector{idx+1} =")
                 for val in resultado:
                     print(f"|  {val}  |")
-                print(f"Guardado como vector \033[1m{nombre_res}\033[0m")
+
         elif opcion == '3':
-            # Combinación lineal
-            todos_nombres = nombres + list(resultados.keys())
-            print("\nVectores disponibles:", " ".join(todos_nombres))
-            seleccion = input("Ingrese los nombres de los vectores para la combinación lineal (separados por espacio): ").strip().split()
-            if len(seleccion) == 0:
-                print("Debe seleccionar al menos un vector.")
-                continue
+            cantidad = int(input("Cantidad de vectores para la combinación lineal: "))
+            tam = int(input("Tamaño de los vectores: "))
             vectores_sel = []
-            for nombre in seleccion:
-                if nombre not in todos_nombres:
-                    print(f"Vector {nombre} no existe.")
-                    break
-                vec = vectores[nombres.index(nombre)] if nombre in nombres else resultados[nombre]
+            for idx in range(cantidad):
+                print(f"Ingrese los valores del vector {idx+1}:")
+                vec = [Fraction(input(f"Elemento {i+1}: ")) for i in range(tam)]
                 vectores_sel.append(vec)
+            print("Ingrese el vector objetivo (los valores separados por espacio, o '0' para vector cero):")
+            objetivo_str = input(f"Vector objetivo de tamaño {tam}: ").strip().split()
+            if objetivo_str == ['0']:
+                objetivo = [Fraction(0) for _ in range(tam)]
+            elif len(objetivo_str) != tam:
+                print("Tamaño incorrecto del vector objetivo.")
+                break
             else:
-                print("Ingrese el vector objetivo (los valores separados por espacio, o '0' para vector cero):")
-                objetivo_str = input(f"Vector objetivo de tamaño {len(vectores_sel[0])}: ").strip().split()
-                if objetivo_str == ['0']:
-                    objetivo = [Fraction(0) for _ in range(len(vectores_sel[0]))]
-                elif len(objetivo_str) != len(vectores_sel[0]):
-                    print("Tamaño incorrecto del vector objetivo.")
-                    continue
+                objetivo = [Fraction(x) for x in objetivo_str]
+            try:
+                from sympy import Matrix, linsolve, symbols
+                mat = Matrix(vectores_sel).T
+                b = Matrix(objetivo)
+                escalares = symbols(f'c1:{len(vectores_sel)+1}')
+                sol = linsolve((mat, b), *escalares)
+                if not sol or len(sol) == 0:
+                    print("No existe una combinación lineal que genere el vector objetivo.")
                 else:
-                    objetivo = [Fraction(x) for x in objetivo_str]
-                # Resolver sistema lineal: vectores_sel * [escalares] = objetivo
-                try:
-                    from sympy import Matrix, linsolve, symbols
-                    mat = Matrix(vectores_sel).T
-                    b = Matrix(objetivo)
-                    escalares = symbols(f'c1:{len(vectores_sel)+1}')
-                    sol = linsolve((mat, b), *escalares)
-                    if not sol or len(sol) == 0:
-                        print("No existe una combinación lineal que genere el vector objetivo.")
-                    else:
-                        print("Existe una combinación lineal:")
-                        for i, nombre in enumerate(seleccion):
-                            print(f"{sol.args[0][i]}*{nombre}")
-                        print("Vector objetivo:")
-                        for val in objetivo:
-                            print(f"|  {val}  |")
-                except ImportError:
-                    print("Se requiere la librería sympy para esta operación.")
+                    print("Existe una combinación lineal:")
+                    for i in range(cantidad):
+                        print(f"{sol.args[0][i]}*vector{i+1}")
+                    print("Vector objetivo:")
+                    for val in objetivo:
+                        print(f"|  {val}  |")
+            except ImportError:
+                print("Se requiere la librería sympy para esta operación.")
+
         elif opcion == '4':
-            # Resolver sistema de ecuaciones con vectores
+            # Resolver sistema de ecuaciones con vectores y mostrar Ax = b y combinación lineal de columnas
             m = int(input("Número de variables (incógnitas): "))
             n = int(input("Número de ecuaciones (tamaño del vector, filas): "))
+            print("Introduce las variables (ejemplo: x y z):")
+            while True:
+                variables = input().strip().split()
+                if len(variables) != m:
+                    print(f"Debes ingresar exactamente {m} variables. Intenta de nuevo.")
+                else:
+                    break
             matriz = []
             print(f"\nVas a ingresar {n} ecuaciones, cada una con {m} variables y el término independiente.")
             print("Ejemplo para 2 ecuaciones y 2 variables:")
@@ -151,9 +114,28 @@ def operar_vectores(vectores, nombres):
             # Separar coeficientes y términos independientes
             coef_matrix = [[matriz[i][j] for i in range(n)] for j in range(m)]  # columnas: cada variable
             b = [matriz[i][-1] for i in range(n)]
+            # Paso 1: mostrar matriz A
+            print("\nMatriz A:")
+            A = [[matriz[i][j] for j in range(m)] for i in range(n)]
+            for fila in A:
+                print(fila)
+            # Paso 2: mostrar vector incógnitas
+            print("\nVector de incógnitas x:")
+            print(variables)
+            # Paso 3: mostrar vector b
+            print("\nVector b:")
+            print(b)
+            # Paso 4: Forma matricial Ax = b
+            print("\nForma matricial Ax = b:")
+            comb_str = []
+            for j in range(m):
+                columna = [A[i][j] for i in range(n)]
+                comb_str.append(f"{variables[j]} * {columna}")
+            print(" + ".join(comb_str), "=", b)
+            # Paso 5: mostrar vectores individuales de cada variable
             print("\nVectores individuales de cada variable:")
             for idx, col in enumerate(coef_matrix):
-                print(f"Vector x{idx+1}:")
+                print(f"Vector {variables[idx]}:")
                 for val in col:
                     print(f"| {val} |")
                 print()
@@ -204,30 +186,92 @@ def operar_vectores(vectores, nombres):
             print("Pivotes en columnas:", [p+1 for p in pivots])
             basicas = [p+1 for p in pivots]
             libres = [i+1 for i in range(m) if (i+1) not in basicas]
-            print("Variables básicas:", [f"x{b}" for b in basicas])
-            print("Variables libres:", [f"x{l}" for l in libres])
-            # Tipo de solución
-            inconsistente = False
-            for i in range(n):
-                fila = rref.row(i)
-                if all(val == 0 for val in fila[:-1]) and fila[-1] != 0:
-                    inconsistente = True
-                    break
-            if inconsistente:
-                print("\nEl sistema es inconsistente(No tiene solucion).")
-            elif len(basicas) == m:
-                print("\nEl sistema es consistente con finitas soluciones.")
-            elif len(basicas) < m:
-                print("\nEl sistema es consistente con infinitas soluciones.")
-            else:
-                print("\nNo se pudo determinar el tipo de solución.")
-            print("\n--- Fin del procedimiento ---\n")
-        elif opcion == '5':
-            print("Saliendo del módulo de operaciones de vectores.")
-            break
-        else:
-            print("Opción inválida.")
+            print("Variables básicas:", [variables[b-1] for b in basicas])
+            print("Variables libres:", [variables[l-1] for l in libres])
 
+            # Determinar si el sistema es homogéneo o no
+            es_homogeneo = all(val == 0 for val in b)
+            if es_homogeneo:
+                print("\nEl sistema es homogéneo (Ax = 0)")
+                if len(libres) > 0:
+                    print("La ecuación homogénea Ax = 0 tiene una solución no trivial porque hay al menos una variable libre.")
+                else:
+                    print("La ecuación homogénea Ax = 0 solo tiene la solución trivial (todas las variables son básicas).")
+            else:
+                print("\nEl sistema es no homogéneo (Ax = b)")
+            # Mostrar conjunto solución (solo mensaje informativo)
+            print("Conjunto solución del sistema lineal:")
+            print("Variables básicas:", [variables[b-1] for b in basicas])
+            print("Variables libres:", [variables[l-1] for l in libres])
+        elif opcion == '5':
+            # Multiplicación de matriz por vector como combinación lineal de columnas
+            filas = int(input("Número de filas de la matriz: "))
+            columnas = int(input("Número de columnas de la matriz: "))
+            matriz = []
+            print("Introduce la matriz fila por fila (separando elementos con espacio):")
+            for i in range(filas):
+                fila = list(map(Fraction, input(f"Fila {i+1}: ").split()))
+                if len(fila) != columnas:
+                    print(f"La fila debe tener exactamente {columnas} elementos.")
+                    return
+                matriz.append(fila)
+            print("Introduce el vector columna (separando elementos con espacio):")
+            vector = list(map(Fraction, input().split()))
+            if len(vector) != columnas:
+                print(f"El vector debe tener exactamente {columnas} elementos.")
+                return
+            # Calcular producto
+            resultado = [0] * filas
+            for j in range(columnas):
+                for i in range(filas):
+                    resultado[i] += matriz[i][j] * vector[j]
+            # Verificar si el resultado es combinación lineal de las columnas de la matriz
+            from sympy import Matrix
+            matriz_sym = Matrix(matriz)
+            resultado_sym = Matrix(resultado)
+            try:
+                sol = matriz_sym.solve_least_squares(resultado_sym)
+                if matriz_sym * sol == resultado_sym:
+                    print("\nEl resultado SÍ puede expresarse como combinación lineal de las columnas de la matriz.\n")
+                    print("PROCESO de la combinación lineal:")
+                    print("Sea x1, x2, ..., xn los escalares que multiplican cada columna:")
+                    print("\nSistema de ecuaciones:")
+                    for i in range(filas):
+                        ecuacion = " + ".join([f"({matriz[i][j]})*x{j+1}" for j in range(columnas)])
+                        print(f"{ecuacion} = {resultado[i]}")
+                    print("\nResolviendo el sistema, se obtiene:")
+                    for idx, escalar in enumerate(sol):
+                        print(f"x{idx+1} = {escalar}")
+                    print("\nCombinación lineal explícita:")
+                    cols = [ [matriz[i][j] for i in range(filas)] for j in range(columnas)]
+                    suma = " + ".join([f"({escalar})*{col}" for escalar, col in zip(sol, cols)])
+                    print(f"{resultado} = {suma}")
+                else:
+                    print("\nEl resultado NO puede expresarse exactamente como combinación lineal de las columnas de la matriz.\n")
+                    print("PROCESO del intento de combinación lineal:")
+                    print("Sea x1, x2, ..., xn los escalares que multiplican cada columna:")
+                    print("\nSistema de ecuaciones:")
+                    for i in range(filas):
+                        ecuacion = " + ".join([f"({matriz[i][j]})*x{j+1}" for j in range(columnas)])
+                        print(f"{ecuacion} = {resultado[i]}")
+                    print("\nAl resolver el sistema, no se obtiene una solución exacta para los escalares.")
+            except Exception as e:
+                print("\nNo se pudo determinar si el resultado es combinación lineal de las columnas de la matriz:", e)
+            # Mostrar resultado
+            print("\nResultado del producto:", resultado)
+            # Mostrar combinación lineal
+            print("\nCombinación lineal de columnas:")
+            for j in range(columnas):
+                col = [matriz[i][j] for i in range(filas)]
+                print(f"{vector[j]} * {col}")
+        elif opcion == '6':
+            print("Saliendo del menú de operaciones de vectores.")
+            return
+
+
+
+# --- Bloque main para pruebas en terminal ---
 if __name__ == "__main__":
-    vectores, nombres = pedir_vectores()
-    operar_vectores(vectores, nombres)
+    print("Calculadora de Álgebra Lineal - Modo Terminal")
+    # Se puede iniciar con vectores vacíos y nombres vacíos
+    operar_vectores([], [])
