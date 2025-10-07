@@ -15,7 +15,7 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 # ✅ Ruta al fondo dentro de gui/assets
-FONDO_PATH = resource_path(os.path.join("assets", "Fondo2.jpg"))
+FONDO_PATH = resource_path(os.path.join("assets", "Fondo1.jpg"))
 
 class EntradaGui(QWidget):
     def __init__(self):

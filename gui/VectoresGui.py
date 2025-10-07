@@ -11,9 +11,11 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFont, QPainter, QColor
 from PyQt6.QtCore import Qt, QTimer
 
-from models.Vectores import Vector, solucionMatrizVector, dependencia_lineal_pasos
+from models.Vectores import Vector, solucionMatrizVector, dependencia_lineal_pasos, analizar_sistema_vectores
 
 class FondoAnimado(QWidget):
+    # ...igual que tu código actual...
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -80,7 +82,6 @@ class FondoAnimado(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-        # Fondo negro
         painter.fillRect(self.rect(), QColor(0, 0, 0))
         font_size = 28
         painter.setFont(QFont("Consolas", font_size, QFont.Weight.Bold))
@@ -91,9 +92,8 @@ class FondoAnimado(QWidget):
             for i in range(col["trail"]):
                 yy = y - i * font_size
                 if 0 <= yy < alto:
-                    # Verde Matrix: cabeza más brillante, cola más tenue
                     if i == 0:
-                        color = QColor(180, 255, 180, 255)  # Verde claro brillante
+                        color = QColor(180, 255, 180, 255)
                     else:
                         color = QColor(0, 255, 70, max(40, 180 - i * 18))
                     painter.setPen(color)
@@ -108,7 +108,6 @@ class VectoresGui(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(40, 40, 40, 40)
         self.setLayout(self.layout)
-        # Fondo animado como hijo directo de la ventana
         self.fondo = FondoAnimado(self)
         self.fondo.lower()
         self._crear_barra_superior()
@@ -116,7 +115,7 @@ class VectoresGui(QWidget):
         self._crear_grid_vectores()
         self._crear_operaciones()
         self._crear_resultado()
-        self.showFullScreen()  # <-- Mueve esto aquí, al final del __init__
+        self.showFullScreen()
 
     def resizeEvent(self, event):
         if hasattr(self, "fondo"):
@@ -161,6 +160,7 @@ class VectoresGui(QWidget):
         self.vectores_grid = QGridLayout()
         self.layout.addLayout(self.vectores_grid)
         self.campos_vectores = []
+        self.campos_b = []
         self.actualizar_tamanos_vectores()
 
     def _crear_operaciones(self):
@@ -202,15 +202,12 @@ class VectoresGui(QWidget):
         self.resultado_texto.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.layout.addWidget(self.resultado_texto)
 
-    def resizeEvent(self, event):
-        if hasattr(self, "fondo"):
-            self.fondo.resize(self.size())
-        super().resizeEvent(event)
-
     def limpiar_campos(self):
         for fila in self.campos_vectores:
             for campo in fila:
                 campo.clear()
+        for campo in getattr(self, "campos_b", []):
+            campo.clear()
         self.resultado_texto.clear()
 
     def actualizar_tamanos_vectores(self):
@@ -236,10 +233,13 @@ class VectoresGui(QWidget):
         self.actualizar_campos_vectores()
 
     def actualizar_campos_vectores(self):
-        for fila in self.campos_vectores:
+        for fila in getattr(self, "campos_vectores", []):
             for campo in fila:
                 campo.deleteLater()
+        for campo in getattr(self, "campos_b", []):
+            campo.deleteLater()
         self.campos_vectores = []
+        self.campos_b = []
         while self.vectores_grid.count():
             item = self.vectores_grid.takeAt(0)
             widget = item.widget()
@@ -248,107 +248,141 @@ class VectoresGui(QWidget):
         cant = len(self.tamanos_combos)
         tamanos = [int(combo.currentText()) for combo in self.tamanos_combos]
         max_tam = max(tamanos) if tamanos else 0
-        for i in range(max_tam):
-            lbl = QLabel(f"x{i+1}")
-            lbl.setStyleSheet("color: #b6ffb6;")
-            self.vectores_grid.addWidget(lbl, 0, i+1, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # Etiquetas de encabezado
+        self.vectores_grid.addWidget(QLabel(""), 0, 0)
         for j in range(cant):
             lbl = QLabel(f"<b>Vector {j+1}</b>")
             lbl.setStyleSheet("color: #b6ffb6;")
-            self.vectores_grid.addWidget(lbl, j+1, 0, alignment=Qt.AlignmentFlag.AlignCenter)
+            self.vectores_grid.addWidget(lbl, 0, j+1, alignment=Qt.AlignmentFlag.AlignCenter)
+        lbl_b = QLabel("<b>b</b>")
+        lbl_b.setStyleSheet("color: #b6ffb6;")
+        self.vectores_grid.addWidget(lbl_b, 0, cant+1, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # Campos de ingreso: cada columna es un vector, cada fila una componente
+        for i in range(max_tam):
+            lbl = QLabel(f"x{i+1}")
+            lbl.setStyleSheet("color: #b6ffb6;")
+            self.vectores_grid.addWidget(lbl, i+1, 0, alignment=Qt.AlignmentFlag.AlignCenter)
             fila_campos = []
-            for i in range(max_tam):
+            for j in range(cant):
                 if i < tamanos[j]:
                     campo = QLineEdit()
                     campo.setFixedWidth(80)
                     campo.setFont(QFont("Segoe UI", 14))
                     campo.setStyleSheet("background: #222; color: #b6ffb6; border-radius: 6px;")
-                    self.vectores_grid.addWidget(campo, j+1, i+1)
+                    self.vectores_grid.addWidget(campo, i+1, j+1)
                 else:
                     campo = QLineEdit()
                     campo.setFixedWidth(80)
                     campo.setFont(QFont("Segoe UI", 14))
                     campo.setDisabled(True)
                     campo.setStyleSheet("background: #222; color: #444; border-radius: 6px;")
-                    self.vectores_grid.addWidget(campo, j+1, i+1)
+                    self.vectores_grid.addWidget(campo, i+1, j+1)
                 fila_campos.append(campo)
             self.campos_vectores.append(fila_campos)
+            # Campo para término independiente
+            campo_b = QLineEdit()
+            campo_b.setFixedWidth(80)
+            campo_b.setFont(QFont("Segoe UI", 14))
+            campo_b.setStyleSheet("background: #222; color: #b6ffb6; border-radius: 6px;")
+            self.vectores_grid.addWidget(campo_b, i+1, cant+1)
+            self.campos_b.append(campo_b)
 
-    def obtener_vectores(self):
+    def obtener_vectores_y_b(self):
+        filas = len(self.campos_vectores)
+        columnas = len(self.campos_vectores[0]) if filas > 0 else 0
         vectores = []
-        tamanos = [int(combo.currentText()) for combo in self.tamanos_combos]
-        for j, tam in enumerate(tamanos):
-            datos = []
-            for i in range(tam):
-                texto = self.campos_vectores[j][i].text()
+        for j in range(columnas):
+            col = []
+            for i in range(filas):
+                campo = self.campos_vectores[i][j]
+                if campo.isEnabled():
+                    texto = campo.text()
+                    if not texto:
+                        raise ValueError(f"Falta un valor en el vector {j+1}, componente {i+1}.")
+                    try:
+                        col.append(float(texto))
+                    except ValueError:
+                        raise ValueError(f"El valor '{texto}' en el vector {j+1}, componente {i+1} no es numérico.")
+            vectores.append(col)
+        b = []
+        for i in range(filas):
+            campo_b = self.campos_b[i]
+            if campo_b.isEnabled():
+                texto = campo_b.text()
                 if not texto:
-                    raise ValueError(f"Falta un valor en el vector {j+1}, componente {i+1}.")
+                    raise ValueError(f"Falta un valor en el término independiente de la ecuación {i+1}.")
                 try:
-                    datos.append(float(texto))
+                    b.append(float(texto))
                 except ValueError:
-                    raise ValueError(f"El valor '{texto}' en el vector {j+1}, componente {i+1} no es numérico.")
-            vectores.append(datos)
-        return vectores
+                    raise ValueError(f"El valor '{texto}' en el término independiente de la ecuación {i+1} no es numérico.")
+        return vectores, b
 
     def ejecutar_operacion(self):
         self.resultado_texto.clear()
         oper = self.combo_oper.currentText()
         try:
-            vectores = self.obtener_vectores()
-            pasos = ""
-            if oper == 'Suma':
-                if not all(len(v) == len(vectores[0]) for v in vectores):
-                    raise ValueError("Todos los vectores deben tener el mismo tamaño para la suma.")
-                resultado = Vector(vectores[0])
-                for v in vectores[1:]:
-                    resultado = resultado.suma(Vector(v))
-                pasos += "Suma de vectores:\n"
-                for idx, v in enumerate(vectores):
-                    pasos += f"Vector {idx+1}: {v}\n"
-                pasos += f"\nResultado: {resultado.datos}"
-                self.resultado_texto.setText(pasos)
-            elif oper == 'Resta':
-                if not all(len(v) == len(vectores[0]) for v in vectores):
-                    raise ValueError("Todos los vectores deben tener el mismo tamaño para la resta.")
-                resultado = Vector(vectores[0])
-                for v in vectores[1:]:
-                    resultado = resultado.resta(Vector(v))
-                pasos += "Resta de vectores:\n"
-                for idx, v in enumerate(vectores):
-                    pasos += f"Vector {idx+1}: {v}\n"
-                pasos += f"\nResultado: {resultado.datos}"
-                self.resultado_texto.setText(pasos)
-            elif oper == 'Multiplicación':
-                if not all(len(v) == len(vectores[0]) for v in vectores):
-                    raise ValueError("Todos los vectores deben tener el mismo tamaño para la multiplicación.")
-                resultado = Vector(vectores[0])
-                for v in vectores[1:]:
-                    resultado = resultado.multiplicacion(Vector(v))
-                pasos += "Multiplicación componente a componente:\n"
-                for idx, v in enumerate(vectores):
-                    pasos += f"Vector {idx+1}: {v}\n"
-                pasos += f"\nResultado: {resultado.datos}"
-                self.resultado_texto.setText(pasos)
-            elif oper == 'Escalar':
-                from PyQt6.QtWidgets import QInputDialog
-                esc, ok = QInputDialog.getDouble(self, 'Escalar', 'Introduce el escalar:', 1.0)
-                if not ok:
-                    return
-                resultado = Vector(vectores[0]).escalar(esc)
-                pasos += f"Vector: {vectores[0]}\nEscalar: {esc}\n\n"
-                pasos += f"Resultado: {resultado.datos}"
-                self.resultado_texto.setText(pasos)
-            elif oper == 'Eliminar coma y punto':
-                resultado = Vector(vectores[0]).eliminar_coma_punto()
-                pasos += f"Vector original: {vectores[0]}\n"
-                pasos += f"Vector sin comas ni puntos: {resultado.datos}"
-                self.resultado_texto.setText(pasos)
-            elif oper == 'Solución Matriz de Vectores':
-                pasos = solucionMatrizVector(vectores)
+            if oper == 'Solución Matriz de Vectores':
+                vectores, b = self.obtener_vectores_y_b()
+                # Armar matriz aumentada para solucionMatrizVector
+                matriz_aumentada = [ [vectores[j][i] for j in range(len(vectores))] + [b[i]] for i in range(len(b)) ]
+                pasos = solucionMatrizVector(matriz_aumentada)
                 self.resultado_texto.setText(pasos)
             elif oper == 'Dependencia/Independencia Lineal':
-                pasos = dependencia_lineal_pasos(vectores)
-                self.resultado_texto.setText(pasos)
+                vectores, b = self.obtener_vectores_y_b()
+                resultado = analizar_sistema_vectores(vectores, b)
+                self.resultado_texto.setText(resultado)
+            else:
+                vectores, _ = self.obtener_vectores_y_b()
+                pasos = ""
+                if oper == 'Suma':
+                    if not all(len(v) == len(vectores[0]) for v in vectores):
+                        raise ValueError("Todos los vectores deben tener el mismo tamaño para la suma.")
+                    resultado = Vector(vectores[0])
+                    for v in vectores[1:]:
+                        resultado = resultado.suma(Vector(v))
+                    pasos += "Suma de vectores:\n"
+                    for idx, v in enumerate(vectores):
+                        pasos += f"Vector {idx+1}: {v}\n"
+                    pasos += f"\nResultado: {resultado.datos}"
+                    self.resultado_texto.setText(pasos)
+                elif oper == 'Resta':
+                    if not all(len(v) == len(vectores[0]) for v in vectores):
+                        raise ValueError("Todos los vectores deben tener el mismo tamaño para la resta.")
+                    resultado = Vector(vectores[0])
+                    for v in vectores[1:]:
+                        resultado = resultado.resta(Vector(v))
+                    pasos += "Resta de vectores:\n"
+                    for idx, v in enumerate(vectores):
+                        pasos += f"Vector {idx+1}: {v}\n"
+                    pasos += f"\nResultado: {resultado.datos}"
+                    self.resultado_texto.setText(pasos)
+                elif oper == 'Multiplicación':
+                    if not all(len(v) == len(vectores[0]) for v in vectores):
+                        raise ValueError("Todos los vectores deben tener el mismo tamaño para la multiplicación.")
+                    resultado = Vector(vectores[0])
+                    for v in vectores[1:]:
+                        resultado = resultado.multiplicacion(Vector(v))
+                    pasos += "Multiplicación componente a componente:\n"
+                    for idx, v in enumerate(vectores):
+                        pasos += f"Vector {idx+1}: {v}\n"
+                    pasos += f"\nResultado: {resultado.datos}"
+                    self.resultado_texto.setText(pasos)
+                elif oper == 'Escalar':
+                    from PyQt6.QtWidgets import QInputDialog
+                    esc, ok = QInputDialog.getDouble(self, 'Escalar', 'Introduce el escalar:', 1.0)
+                    if not ok:
+                        return
+                    resultado = Vector(vectores[0]).escalar(esc)
+                    pasos += f"Vector: {vectores[0]}\nEscalar: {esc}\n\n"
+                    pasos += f"Resultado: {resultado.datos}"
+                    self.resultado_texto.setText(pasos)
+                elif oper == 'Eliminar coma y punto':
+                    resultado = Vector(vectores[0]).eliminar_coma_punto()
+                    pasos += f"Vector original: {vectores[0]}\n"
+                    pasos += f"Vector sin comas ni puntos: {resultado.datos}"
+                    self.resultado_texto.setText(pasos)
         except Exception as e:
             QMessageBox.warning(self, 'Error', str(e))
 
