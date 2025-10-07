@@ -432,13 +432,22 @@ class MatricesGui(QWidget):
                 pasos = gauss_res.pasos
                 final_rref = gauss_res
 
+            # Formatear los pasos con un espacio entre cada paso para que
+            # la impresión no quede "pegada" una línea sobre otra.
             pasos_ordenados = []
             for idx, paso in enumerate(pasos, 1):
+                # Si el paso ya es una descripción del estado actual, úsalo tal cual
+                # (sin añadir saltos extra al principio). Para los demás pasos,
+                # anteponemos un índice para mayor claridad.
                 if paso.startswith("Estado actual:"):
-                    pasos_ordenados.append("\n" + paso)
+                    pasos_ordenados.append(paso)
                 else:
                     pasos_ordenados.append(f"Paso {idx}: {paso}")
-            self.pasos_texto.setPlainText("\n".join(pasos_ordenados) if pasos_ordenados else "No hay pasos.")
+
+            # Usar doble salto de línea entre bloques para evitar que queden
+            # pegados cuando un paso contiene varias líneas (por ejemplo
+            # matrices impresas). QTextEdit respetará estos saltos.
+            self.pasos_texto.setPlainText("\n\n".join(pasos_ordenados) if pasos_ordenados else "No hay pasos.")
 
             info = Matrices.clasificar_y_resolver_from_rref(final_rref)
             txt = "Matriz aumentada final (RREF cuando aplica):\n"
