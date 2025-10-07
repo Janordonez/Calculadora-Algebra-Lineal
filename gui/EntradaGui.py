@@ -6,7 +6,18 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QPixmap, QFont
 from PyQt6.QtCore import Qt, QTimer
 
-FONDO_PATH = r"C:\Users\guill\Downloads\fondo calculadora.jpg"
+def resource_path(relative_path):
+    """Devuelve la ruta correcta del recurso, incluso si está empaquetado con PyInstaller."""
+    if hasattr(sys, "_MEIPASS"):
+        # Si está empaquetado con PyInstaller
+        base_path = sys._MEIPASS
+    else:
+        # Carpeta actual (gui/)
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
+
+# Ruta al fondo dentro de gui/assets
+FONDO_PATH = resource_path(os.path.join("assets", "Fondo2.jpg"))
 
 class EntradaGui(QWidget):
     def __init__(self):

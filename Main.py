@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "gui"))
 
 from PyQt6.QtWidgets import QApplication
-from EntradaGui import EntradaGui
+from gui.EntradaGui import EntradaGui
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
