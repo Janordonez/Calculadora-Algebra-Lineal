@@ -1,5 +1,7 @@
 from typing import List, Tuple, Dict, Any
 from fractions import Fraction
+import json
+import os
 
 EPS = 1e-10
 
@@ -145,3 +147,85 @@ class Matrices:
             " | ".join(f"{x:8.4f}" for x in row)
             for row in mat
         )
+
+    # -------------------- Nuevas utilidades --------------------
+    @staticmethod
+    def multiply(a: List[List[float]], b: List[List[float]]) -> List[List[float]]:
+        """Multiplica dos matrices a (n x m) y b (m x p) devolviendo (n x p)."""
+        if not a or not b:
+            raise ValueError("Ambas matrices deben ser no vacías.")
+        n = len(a)
+        m = len(a[0])
+        if any(len(row) != m for row in a):
+            raise ValueError("Todas las filas de A deben tener la misma longitud.")
+        mb = len(b)
+        pb = len(b[0])
+        if any(len(row) != pb for row in b):
+            raise ValueError("Todas las filas de B deben tener la misma longitud.")
+        if m != mb:
+            raise ValueError(f"Dimensiones incompatibles: A es {n}x{m} pero B es {mb}x{pb}.")
+        # resultado n x p
+        res = [[0.0 for _ in range(pb)] for _ in range(n)]
+        for i in range(n):
+            for j in range(pb):
+                s = 0.0
+                for k in range(m):
+                    s += a[i][k] * b[k][j]
+                res[i][j] = s
+        return res
+
+    @staticmethod
+    def transpose(a: List[List[float]]) -> List[List[float]]:
+        """Devuelve la transpuesta de A."""
+        if not a:
+            return []
+        m = len(a[0])
+        if any(len(row) != m for row in a):
+            raise ValueError("Todas las filas de A deben tener la misma longitud.")
+        return [[a[r][c] for r in range(len(a))] for c in range(m)]
+
+    @staticmethod
+    def _get_storage_path() -> str:
+        base = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        data_dir = os.path.join(base, 'data')
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir, exist_ok=True)
+        return os.path.join(data_dir, 'matrices.json')
+
+    @staticmethod
+    def load_saved_matrices() -> dict:
+        """Carga todas las matrices guardadas desde data/matrices.json -> dict nombre -> matrix"""
+        path = Matrices._get_storage_path()
+        if not os.path.exists(path):
+            return {}
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            # validar estructura esperada: dict nombre -> lista de filas
+            res = {}
+            for k, v in data.items():
+                # convertir elementos a float
+                res[k] = [[float(x) for x in row] for row in v]
+            return res
+        except Exception:
+            return {}
+
+    @staticmethod
+    def save_matrix(name: str, matrix: List[List[float]]):
+        """Guarda (o sobrescribe) una matriz con el nombre proporcionado en el archivo JSON."""
+        if not name or not isinstance(name, str):
+            raise ValueError("El nombre debe ser una cadena no vacía.")
+        path = Matrices._get_storage_path()
+        cur = Matrices.load_saved_matrices()
+        cur[name] = matrix
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(cur, f, indent=2)
+
+    @staticmethod
+    def delete_saved_matrix(name: str):
+        path = Matrices._get_storage_path()
+        cur = Matrices.load_saved_matrices()
+        if name in cur:
+            del cur[name]
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(cur, f, indent=2)

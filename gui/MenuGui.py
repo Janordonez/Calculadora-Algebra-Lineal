@@ -108,6 +108,12 @@ class MenuGui(QWidget):
         self.btn_matrices.clicked.connect(self.abrir_matrices)
         btn_layout.addWidget(self.btn_matrices, alignment=Qt.AlignmentFlag.AlignHCenter)
 
+        self.btn_operaciones = QPushButton("Operaciones Matrices  ➔", self.container)
+        self.btn_operaciones.setFont(f_btn)
+        self.btn_operaciones.setFixedWidth(460)
+        self.btn_operaciones.clicked.connect(self.abrir_operaciones)
+        btn_layout.addWidget(self.btn_operaciones, alignment=Qt.AlignmentFlag.AlignHCenter)
+
         self.btn_vectores = QPushButton("Vectores  ➔", self.container)
         self.btn_vectores.setFont(f_btn)
         self.btn_vectores.setFixedWidth(460)
@@ -142,7 +148,7 @@ class MenuGui(QWidget):
         self.lbl_grupo.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         # Sombra en botones
-        for btn in [self.btn_matrices, self.btn_vectores, self.btn_salir]:
+        for btn in [self.btn_matrices, self.btn_operaciones, self.btn_vectores, self.btn_salir]:
             sombra = QGraphicsDropShadowEffect()
             sombra.setBlurRadius(25)
             sombra.setOffset(0, 6)
@@ -234,6 +240,15 @@ class MenuGui(QWidget):
             self.close()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir VectoresGui:\n{e}")
+
+    def abrir_operaciones(self):
+        try:
+            from gui.OperacionesMatricesGui import OperacionesMatricesGui
+            self.oper = OperacionesMatricesGui()
+            self.oper.show()
+            self.close()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo abrir OperacionesMatricesGui:\n{e}")
 
     def cerrar_programa(self):
         QApplication.quit()
