@@ -112,6 +112,15 @@ class OperacionesMatricesGui(QWidget):
         self.btn_mult = QPushButton("Multiplicar A x B")
         self.btn_mult.clicked.connect(self.multiply_selected)
         sel_layout.addWidget(self.btn_mult)
+        # --- multiplicación por escalar ---
+        sel_layout.addWidget(QLabel("   Escalar:"))
+        self.scalar_input = QLineEdit()
+        self.scalar_input.setFixedWidth(100)
+        self.scalar_input.setPlaceholderText("ej: 2.5")
+        sel_layout.addWidget(self.scalar_input)
+        self.btn_scalar = QPushButton("A * escalar")
+        self.btn_scalar.clicked.connect(self.multiply_by_scalar_selected)
+        sel_layout.addWidget(self.btn_scalar)
         right.addLayout(sel_layout)
 
         right.addWidget(QLabel("Resultado / Mensajes:"))
@@ -294,6 +303,36 @@ class OperacionesMatricesGui(QWidget):
                 self.reload_saved()
         except Exception as e:
             QMessageBox.critical(self, "Error al multiplicar", str(e))
+
+    def multiply_by_scalar_selected(self):
+        name = self.sel_a.text().strip()
+        if not name:
+            QMessageBox.warning(self, "Error", "Proporciona el nombre de la matriz A en el campo 'A (nombre)'.")
+            return
+        saved = Matrices.load_saved_matrices()
+        if name not in saved:
+            QMessageBox.warning(self, "Error", f"No existe la matriz: {name}")
+            return
+        try:
+            scalar_txt = self.scalar_input.text().strip()
+            if scalar_txt == "":
+                raise ValueError("Introduce un escalar válido.")
+            scalar = float(scalar_txt)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Escalar no válido: {e}")
+            return
+        a = saved[name]
+        try:
+            res = Matrices.multiply_scalar(a, scalar)
+            txt = f"Resultado {name} * {scalar}:\n" + '\n'.join(str(r) for r in res)
+            self.result_text.setPlainText(txt)
+            reply = QMessageBox.question(self, "Guardar resultado", f"¿Guardar resultado como '{name}_x_{scalar}'?",
+                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                Matrices.save_matrix(f"{name}_x_{scalar}", res)
+                self.reload_saved()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
 
     def delete_selected(self):
         item = self.list_widget.currentItem()

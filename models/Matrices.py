@@ -229,3 +229,13 @@ class Matrices:
             del cur[name]
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(cur, f, indent=2)
+
+    @staticmethod
+    def multiply_scalar(a: List[List[float]], scalar: float) -> List[List[float]]:
+        """Multiplica cada elemento de la matriz por el escalar dado."""
+        if not a:
+            raise ValueError("La matriz no puede estar vacía.")
+        m = len(a[0])
+        if any(len(row) != m for row in a):
+            raise ValueError("Todas las filas de la matriz deben tener la misma longitud.")
+        return [[float(x) * float(scalar) for x in row] for row in a]
