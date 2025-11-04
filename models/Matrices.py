@@ -254,7 +254,7 @@ class Matrices:
         pasos = []
         pasos.append("Matriz (3x3) para Sarrus:")
         pasos.append(Matrices._mat_to_str(A))
-        # Formar extensión de la matriz (primeras dos columnas repetidas)
+        # Formar extensión de la matriz (primeras dos columnas repetidas)-
         pasos.append("\nSe repiten las dos primeras columnas a la derecha para aplicar Sarrus:")
         ext = [row + row[:2] for row in A]
         pasos.append(Matrices._mat_to_str(ext))

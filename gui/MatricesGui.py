@@ -151,7 +151,7 @@ class MatrizInputWidget(QWidget):
         return datos, b
 
 
-# --- GUI principal ---
+# --- GUI principal. ---
 class MatricesGui(QWidget):
     def __init__(self):
         super().__init__()

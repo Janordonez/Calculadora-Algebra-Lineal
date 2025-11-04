@@ -212,7 +212,7 @@ class OperacionesMatricesGui(QWidget):
             QMessageBox.warning(self, "Mostrar pasos - Error", str(e))
 
     # =========================
-    #  Resto utilidades GUI (generar, guardar, mostrar, multiplicar, etc.)
+    #  Resto utilidades GUI (generar, guardar, mostrar, multiplicar, etc..)
     # =========================
     def generate_fields(self):
         try:
