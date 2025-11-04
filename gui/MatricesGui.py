@@ -435,7 +435,7 @@ class MatricesGui(QWidget):
             txt += f"\nVariables básicas (VB): {', '.join(basicas) if basicas else 'Ninguna'}"
             txt += f"\nVariables libres (VL): {', '.join(libres) if libres else 'Ninguna'}"
 
-            # Mostrar tipo de sistema y soluciones
+            # Mostrar tipo de sistema y soluciones..
             txt += "\n\nClasificación: " + info.get("tipo", "?").upper() + "\n\n"
             if info["tipo"] == "incompatible":
                 txt += "❌ SISTEMA INCONSISTENTE: no tiene solución.\n"

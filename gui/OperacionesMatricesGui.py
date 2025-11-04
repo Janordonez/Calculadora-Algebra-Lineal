@@ -37,7 +37,7 @@ class OperacionesMatricesGui(QWidget):
 
         layout = QVBoxLayout()
 
-        # --- Grupo superior: crear matriz ---
+        # --- Grupo superior: crear matriz.. ---
         crear_group = QGroupBox("Crear matriz")
         crear_layout = QHBoxLayout()
         crear_group.setLayout(crear_layout)
