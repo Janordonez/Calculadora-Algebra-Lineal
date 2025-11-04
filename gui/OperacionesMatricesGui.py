@@ -3,15 +3,17 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from typing import List
+import traceback
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QLineEdit, QListWidget, QMessageBox, QGridLayout, QTextEdit, QGroupBox, QSizePolicy
+    QLineEdit, QListWidget, QMessageBox, QGridLayout, QTextEdit, QGroupBox, QSizePolicy,
+    QInputDialog, QMenu
 )
 from PyQt6.QtGui import QFont
+    # If you experience issues with PyQt6, ensure it is installed and compatible.
 from PyQt6.QtCore import Qt
 
 from models.Matrices import Matrices
-
 
 class OperacionesMatricesGui(QWidget):
     def __init__(self):
@@ -19,7 +21,6 @@ class OperacionesMatricesGui(QWidget):
         self.setWindowTitle("Operaciones con Matrices")
         self.resize(900, 600)
 
-        # Tema y estilo
         self.setStyleSheet("""
             QWidget { background: qlineargradient(x1:0 y1:0, x2:1 y2:1, stop:0 #071428, stop:1 #0b2940); color: #e6eef6; font-family: 'Segoe UI', Arial; }
             QGroupBox { border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-top: 8px; background: rgba(255,255,255,0.02); }
@@ -84,6 +85,17 @@ class OperacionesMatricesGui(QWidget):
         self.btn_delete = QPushButton("Eliminar seleccionada")
         self.btn_delete.clicked.connect(self.delete_selected)
         acciones_layout.addWidget(self.btn_delete)
+
+        # BOTÓN ÚNICO: "Métodos determinante"
+        self.btn_methods = QPushButton("Métodos determinante")
+        self.btn_methods.setToolTip("Selecciona un método y se mostrará paso a paso automáticamente")
+        menu_methods = QMenu(self)
+        menu_methods.addAction("Sarrus (pasos)", lambda: self._show_method_steps('sarrus'))
+        menu_methods.addAction("Cofactores (pasos)", lambda: self._show_method_steps('cofactors'))
+        menu_methods.addAction("Cramer (pasos)", lambda: self._show_method_steps('cramer'))
+        self.btn_methods.setMenu(menu_methods)
+        acciones_layout.addWidget(self.btn_methods)
+
         layout.addWidget(acciones_group)
 
         # Panel de operaciones y lista (grupo)
@@ -99,7 +111,6 @@ class OperacionesMatricesGui(QWidget):
         panel_layout.addLayout(left, 1)
 
         right = QVBoxLayout()
-        # selección para multiplicar
         sel_layout = QHBoxLayout()
         sel_layout.addWidget(QLabel("A (nombre):"))
         self.sel_a = QLineEdit()
@@ -112,7 +123,6 @@ class OperacionesMatricesGui(QWidget):
         self.btn_mult = QPushButton("Multiplicar A x B")
         self.btn_mult.clicked.connect(self.multiply_selected)
         sel_layout.addWidget(self.btn_mult)
-        # --- multiplicación por escalar ---
         sel_layout.addWidget(QLabel("   Escalar:"))
         self.scalar_input = QLineEdit()
         self.scalar_input.setFixedWidth(100)
@@ -137,6 +147,73 @@ class OperacionesMatricesGui(QWidget):
 
         self.reload_saved()
 
+    # =========================
+    #  Manejador único para mostrar pasos de métodos
+    # =========================
+    def _show_method_steps(self, method: str):
+        try:
+            item = self.list_widget.currentItem()
+            if not item:
+                raise ValueError("Selecciona una matriz de la lista.")
+            name = item.text().split('  ')[0]
+            saved = Matrices.load_saved_matrices()
+            if name not in saved:
+                raise ValueError("Matriz no encontrada.")
+            mat = saved[name]
+            if not isinstance(mat, list) or not all(isinstance(row, list) for row in mat):
+                raise ValueError("La matriz guardada tiene formato inválido. Debe ser lista de filas.")
+
+            if method == 'sarrus':
+                det, pasos = Matrices.det_sarrus(mat)
+                self.result_text.setPlainText(f"Determinante por Sarrus de '{name}': {Matrices._fmt_num(det)}\n\nPasos:\n{pasos}")
+                return
+
+            if method == 'cofactors':
+                det, pasos = Matrices.det_cofactor(mat)
+                self.result_text.setPlainText(f"Determinante por Cofactores de '{name}': {Matrices._fmt_num(det)}\n\nPasos:\n{pasos}")
+                return
+
+            if method == 'cramer':
+                rows = len(mat)
+                cols = len(mat[0]) if rows > 0 else 0
+                if cols == rows + 1:
+                    A = [row[:-1] for row in mat]
+                    b = [[row[-1]] for row in mat]
+                    sol, pasos = Matrices.cramer(A, b)
+                    if sol is None:
+                        self.result_text.setPlainText(f"Cramer no aplicable para '{name}'.\n\nPasos:\n{pasos}")
+                    else:
+                        self.result_text.setPlainText(f"Cramer (matriz aumentada) '{name}':\n\nPasos:\n{pasos}")
+                    return
+                b_name, ok = QInputDialog.getText(self, "Vector b requerido", "Ingrese el nombre del vector/matriz columna b:")
+                if not ok or not b_name.strip():
+                    return
+                b_name = b_name.strip()
+                saved2 = Matrices.load_saved_matrices()
+                if b_name not in saved2:
+                    raise ValueError(f"Vector b '{b_name}' no encontrado.")
+                A = mat
+                b_mat = saved2[b_name]
+                if not isinstance(b_mat, list) or not all(isinstance(row, list) and len(row) == 1 for row in b_mat):
+                    raise ValueError("b debe ser una matriz columna (nx1).")
+                if len(b_mat) != len(A):
+                    raise ValueError("Dimensiones incompatibles entre A y b.")
+                sol, pasos = Matrices.cramer(A, b_mat)
+                if sol is None:
+                    self.result_text.setPlainText(f"Cramer no aplicable para A='{name}' y b='{b_name}'.\n\nPasos:\n{pasos}")
+                else:
+                    self.result_text.setPlainText(f"Cramer A='{name}', b='{b_name}':\n\nPasos:\n{pasos}")
+                return
+
+            raise ValueError("Método no reconocido.")
+        except Exception as e:
+            tb = traceback.format_exc()
+            self.result_text.setPlainText(f"Error: {e}\n\nTraceback:\n{tb}")
+            QMessageBox.warning(self, "Mostrar pasos - Error", str(e))
+
+    # =========================
+    #  Resto utilidades GUI (generar, guardar, mostrar, multiplicar, etc.)
+    # =========================
     def generate_fields(self):
         try:
             r = int(self.rows_input.text())
@@ -146,7 +223,6 @@ class OperacionesMatricesGui(QWidget):
         except Exception:
             QMessageBox.warning(self, "Error", "Filas y columnas deben ser enteros positivos.")
             return
-        # limpiar grid previo
         for i in reversed(range(self.matrix_grid.count())):
             w = self.matrix_grid.itemAt(i).widget()
             if w:
@@ -200,15 +276,13 @@ class OperacionesMatricesGui(QWidget):
         saved = Matrices.load_saved_matrices()
         for k in sorted(saved.keys()):
             rows = len(saved[k])
-            cols = len(saved[k][0]) if rows>0 else 0
+            cols = len(saved[k][0]) if rows > 0 else 0
             self.list_widget.addItem(f"{k}  ({rows}x{cols})")
 
     def _get_name_from_list_item(self, item_text: str) -> str:
-        # formato: "name  (RxC)"
         return item_text.split('  ')[0]
 
     def show_selected(self):
-        """Muestra la matriz seleccionada en el área de resultado y ofrece volcarla a los campos de entrada."""
         item = self.list_widget.currentItem()
         if not item:
             QMessageBox.warning(self, "Error", "Selecciona una matriz de la lista.")
@@ -219,34 +293,26 @@ class OperacionesMatricesGui(QWidget):
             QMessageBox.warning(self, "Error", "Matriz no encontrada.")
             return
         mat = saved[name]
-        # mostrar en el cuadro de texto
         txt = f"Matriz '{name}' ({len(mat)}x{len(mat[0]) if mat else 0}):\n"
         for row in mat:
             txt += "[ " + ", ".join(str(x) for x in row) + " ]\n"
         self.result_text.setPlainText(txt)
-
-        # opcional: volcar a campos de entrada
-        # si ya existen campos y coinciden dimensiones, volcamos directamente
         r = len(mat)
-        c = len(mat[0]) if r>0 else 0
+        c = len(mat[0]) if r > 0 else 0
         if self.matrix_widgets and len(self.matrix_widgets) == r and len(self.matrix_widgets[0]) == c:
             for i in range(r):
                 for j in range(c):
                     self.matrix_widgets[i][j].setText(str(mat[i][j]))
             return
-
-        # preguntar si desea generar campos para volcar
         reply = QMessageBox.question(self, "Volcar matriz", f"¿Generar campos {r}x{c} y volcar la matriz en los campos?",
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
-            # poner dimensiones y generar
             self.rows_input.setText(str(r))
             self.cols_input.setText(str(c))
             try:
                 self.generate_fields()
             except Exception:
                 pass
-            # ahora volcar
             if self.matrix_widgets and len(self.matrix_widgets) == r and len(self.matrix_widgets[0]) == c:
                 for i in range(r):
                     for j in range(c):
@@ -265,9 +331,7 @@ class OperacionesMatricesGui(QWidget):
         mat = saved[name]
         try:
             t = Matrices.transpose(mat)
-            # mostrar y ofrecer guardar con sufijo
             self.result_text.setPlainText(f"Transpuesta de '{name}':\n" + '\n'.join(str(r) for r in t))
-            # preguntar si guardar
             reply = QMessageBox.question(self, "Guardar transpuesta", f"¿Guardar transpuesta como '{name}_T'?",
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
@@ -295,7 +359,6 @@ class OperacionesMatricesGui(QWidget):
             res = Matrices.multiply(a, b)
             txt = f"Resultado {a_name} x {b_name}:\n" + '\n'.join(str(r) for r in res)
             self.result_text.setPlainText(txt)
-            # ofrecer guardar
             reply = QMessageBox.question(self, "Guardar resultado", f"¿Guardar resultado como '{a_name}_x_{b_name}'?",
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
