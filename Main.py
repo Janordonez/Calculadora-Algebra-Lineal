@@ -1,7 +1,7 @@
 import sys
 import os
 
-# Asegura que el directorio 'gui' esté en el path....
+# Asegura que el directorio 'gui' esté en el path
 sys.path.append(os.path.join(os.path.dirname(__file__), "gui"))
 
 from PyQt6.QtWidgets import QApplication

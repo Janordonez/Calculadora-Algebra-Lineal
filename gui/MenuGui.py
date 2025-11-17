@@ -52,19 +52,16 @@ class MenuGui(QWidget):
                 padding: 20px 80px;
                 font-size: 28px;
                 font-weight: 700;
-                transition: all 0.2s ease-in-out;
             }
 
             QPushButton:hover {
                 background-color: #3b6b9a;
                 border: 2px solid #4a89c7;
-                transform: scale(1.03);
             }
 
             QPushButton:pressed {
                 background-color: #27425c;
                 border: 2px solid #1e2f44;
-                transform: scale(0.98);
             }
         """)
 
@@ -104,19 +101,23 @@ class MenuGui(QWidget):
 
         self.btn_matrices = QPushButton("Matrices  ➔", self.container)
         self.btn_matrices.setFont(f_btn)
-        self.btn_matrices.setFixedWidth(460)
+        # aumentar ancho y altura para evitar que textos largos se corten
+        self.btn_matrices.setFixedWidth(640)
+        self.btn_matrices.setFixedHeight(76)
         self.btn_matrices.clicked.connect(self.abrir_matrices)
         btn_layout.addWidget(self.btn_matrices, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        self.btn_operaciones = QPushButton("Operaciones Matrices  ➔", self.container)
+        self.btn_operaciones = QPushButton("Operaciones con Matrices  ➔", self.container)
         self.btn_operaciones.setFont(f_btn)
-        self.btn_operaciones.setFixedWidth(460)
+        self.btn_operaciones.setFixedWidth(640)
+        self.btn_operaciones.setFixedHeight(76)
         self.btn_operaciones.clicked.connect(self.abrir_operaciones)
         btn_layout.addWidget(self.btn_operaciones, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         self.btn_vectores = QPushButton("Vectores  ➔", self.container)
         self.btn_vectores.setFont(f_btn)
-        self.btn_vectores.setFixedWidth(460)
+        self.btn_vectores.setFixedWidth(640)
+        self.btn_vectores.setFixedHeight(76)
         self.btn_vectores.clicked.connect(self.abrir_vectores)
         btn_layout.addWidget(self.btn_vectores, alignment=Qt.AlignmentFlag.AlignHCenter)
 
@@ -245,7 +246,8 @@ class MenuGui(QWidget):
         try:
             from gui.OperacionesMatricesGui import OperacionesMatricesGui
             self.oper = OperacionesMatricesGui()
-            self.oper.show()
+            # Mostrar la ventana de operaciones en pantalla completa
+            self.oper.showFullScreen()
             self.close()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir OperacionesMatricesGui:\n{e}")
