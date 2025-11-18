@@ -102,18 +102,35 @@ class MenuGui(QWidget):
 
         f_btn = QFont("Segoe UI", 20, QFont.Weight.Bold)
 
+        # Botón Matrices (original)
         self.btn_matrices = QPushButton("Matrices  ➔", self.container)
         self.btn_matrices.setFont(f_btn)
         self.btn_matrices.setFixedWidth(460)
         self.btn_matrices.clicked.connect(self.abrir_matrices)
         btn_layout.addWidget(self.btn_matrices, alignment=Qt.AlignmentFlag.AlignHCenter)
 
+        # Botón Operaciones con Matrices (original)
+        self.btn_operaciones = QPushButton("Operaciones Matrices  ➔", self.container)
+        self.btn_operaciones.setFont(f_btn)
+        self.btn_operaciones.setFixedWidth(460)
+        self.btn_operaciones.clicked.connect(self.abrir_operaciones)
+        btn_layout.addWidget(self.btn_operaciones, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        # Botón Vectores (original)
         self.btn_vectores = QPushButton("Vectores  ➔", self.container)
         self.btn_vectores.setFont(f_btn)
         self.btn_vectores.setFixedWidth(460)
         self.btn_vectores.clicked.connect(self.abrir_vectores)
         btn_layout.addWidget(self.btn_vectores, alignment=Qt.AlignmentFlag.AlignHCenter)
 
+        # 🔹 Nuevo botón: Errores Numéricos
+        self.btn_errores = QPushButton("Errores Numéricos  ➔", self.container)
+        self.btn_errores.setFont(f_btn)
+        self.btn_errores.setFixedWidth(460)
+        self.btn_errores.clicked.connect(self.abrir_errores)
+        btn_layout.addWidget(self.btn_errores, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        # Botón Salir (original)
         self.btn_salir = QPushButton("Salir", self.container)
         f_btn_small = QFont("Segoe UI", 18, QFont.Weight.Bold)
         self.btn_salir.setFont(f_btn_small)
@@ -141,8 +158,8 @@ class MenuGui(QWidget):
         self.lbl_grupo.setStyleSheet("color: #38bdf8; background: transparent; border: none;")
         self.lbl_grupo.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        # Sombra en botones
-        for btn in [self.btn_matrices, self.btn_vectores, self.btn_salir]:
+        # Sombra en botones (incluyendo el nuevo de errores)
+        for btn in [self.btn_matrices, self.btn_operaciones, self.btn_vectores, self.btn_errores, self.btn_salir]:
             sombra = QGraphicsDropShadowEffect()
             sombra.setBlurRadius(25)
             sombra.setOffset(0, 6)
@@ -176,7 +193,11 @@ class MenuGui(QWidget):
             pixmap = QPixmap(FONDO_PATH)
             ancho = max(1, self.width() + 120)
             alto = max(1, self.height() + 120)
-            fondo_pixmap = pixmap.scaled(ancho, alto, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            fondo_pixmap = pixmap.scaled(
+                ancho, alto,
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
             x_offset = int(self.fondo_offset)
             y_offset = int(self.fondo_offset // 3)
             x_offset = max(0, min(x_offset, max(0, fondo_pixmap.width() - self.width())))
@@ -234,6 +255,24 @@ class MenuGui(QWidget):
             self.close()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir VectoresGui:\n{e}")
+
+    def abrir_operaciones(self):
+        try:
+            from gui.OperacionesMatricesGui import OperacionesMatricesGui
+            self.oper = OperacionesMatricesGui()
+            self.oper.show()
+            self.close()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo abrir OperacionesMatricesGui:\n{e}")
+
+    def abrir_errores(self):
+        try:
+            from gui.ErroresGui import ErroresGui
+            self.errores = ErroresGui()
+            self.errores.show()
+            self.close()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo abrir ErroresGui:\n{e}")
 
     def cerrar_programa(self):
         QApplication.quit()
