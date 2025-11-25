@@ -15,7 +15,7 @@ class ErroresGui(QWidget):
     Interfaz gráfica para:
       - Notación posicional (base 10 y base 2)
       - Ejemplo de punto flotante (a + b == c, editable; default 0.1,0.2,0.3)
-      - Cálculo de error absoluto, relativo y propagación usando f(x)=sin(x)+x^2
+      - Cálculo de error absoluto y relativo usando f(x)=sin(x)+x^2
     """
     def __init__(self):
         super().__init__()
@@ -307,7 +307,7 @@ class ErroresGui(QWidget):
         layout.setSpacing(12)
 
         desc = QLabel(
-            "Cálculo de error absoluto, error relativo y propagación del error\n"
+            "Cálculo de error absoluto y error relativo\n"
             "para la función f(x) = sin(x) + x². Ingresa el valor verdadero (x_v)\n"
             "y el valor aproximado (x_a).",
             tab
@@ -337,13 +337,26 @@ class ErroresGui(QWidget):
 
         layout.addLayout(grid)
 
-        # Tabla de resultados
+        # ----- Bloque de resultados dividido verticalmente -----
+        resultados_layout = QHBoxLayout()
+        resultados_layout.setSpacing(12)
+
+        # Tabla (lado izquierdo)
         self.tabla = QTableWidget(0, 2, tab)
         self.tabla.setHorizontalHeaderLabels(["Magnitud", "Valor"])
         self.tabla.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(self.tabla)
+        self.tabla.verticalHeader().setVisible(False)
+        self.tabla.setMinimumWidth(380)
+        resultados_layout.addWidget(self.tabla, 1)
 
-        # Interpretación
+        # Paso a paso (lado derecho)
+        self.txt_pasos = QTextEdit(tab)
+        self.txt_pasos.setReadOnly(True)
+        resultados_layout.addWidget(self.txt_pasos, 1)
+
+        layout.addLayout(resultados_layout)
+
+        # Interpretación general
         self.lbl_interpretacion = QLabel("", tab)
         self.lbl_interpretacion.setWordWrap(True)
         layout.addWidget(self.lbl_interpretacion)
@@ -360,15 +373,15 @@ class ErroresGui(QWidget):
         x_v = float(self.spn_xv.value())
         x_a = float(self.spn_xa.value())
 
+        # Errores en x
         error_abs_x = abs(x_v - x_a)
         error_rel_x = error_abs_x / abs(x_v) if x_v != 0 else float("inf")
 
+        # Evaluación de la función
         f_v = self.f(x_v)
         f_a = self.f(x_a)
-        error_abs_f = abs(f_v - f_a)
-        error_rel_f = error_abs_f / abs(f_v) if f_v != 0 else float("inf")
-        error_prop_teorico = abs(self.f_derivada(x_v)) * error_abs_x
 
+        # ---------- Tabla: solo filas 1 a 6 ----------
         datos = [
             ("x verdadero (x_v)", f"{x_v:.10f}"),
             ("x aproximado (x_a)", f"{x_a:.10f}"),
@@ -376,9 +389,6 @@ class ErroresGui(QWidget):
             ("Error relativo en x (E_r)", f"{error_rel_x:.10e}"),
             ("f(x_v)", f"{f_v:.10f}"),
             ("f(x_a)", f"{f_a:.10f}"),
-            ("Error absoluto en f(x)", f"{error_abs_f:.10e}"),
-            ("Error relativo en f(x)", f"{error_rel_f:.10e}"),
-            ("Aprox. teórica |f'(x_v)|·E_a", f"{error_prop_teorico:.10e}"),
         ]
 
         self.tabla.setRowCount(len(datos))
@@ -387,15 +397,62 @@ class ErroresGui(QWidget):
             self.tabla.setItem(i, 1, QTableWidgetItem(valor))
 
         porcentaje_rel_x = error_rel_x * 100 if math.isfinite(error_rel_x) else float("inf")
-        porcentaje_rel_f = error_rel_f * 100 if math.isfinite(error_rel_f) else float("inf")
 
+        # ---------- Paso a paso con nombres claros ----------
+        pasos = []
+        pasos.append("1) Definición de los valores de referencia")
+        pasos.append(f"   x_v  = {x_v:.10f}   (valor verdadero)")
+        pasos.append(f"   x_a  = {x_a:.10f}   (valor aproximado)")
+        pasos.append("")
+        pasos.append("2) Cálculo del error absoluto en x")
+        pasos.append(
+            "   Restamos el valor aproximado al valor verdadero:\n"
+            f"      x_v - x_a = {x_v:.10f} - {x_a:.10f}"
+        )
+        pasos.append(
+            "   Luego tomamos el valor absoluto de esa diferencia:\n"
+            f"      E_a = |x_v - x_a| = |{x_v:.10f} - {x_a:.10f}| = {error_abs_x:.10e}"
+        )
+        pasos.append("")
+        pasos.append("3) Cálculo del error relativo en x")
+        if math.isfinite(error_rel_x):
+            pasos.append(
+                "   Dividimos el error absoluto entre el valor verdadero en magnitud:\n"
+                f"      E_r = E_a / |x_v| = {error_abs_x:.10e} / |{x_v:.10f}| = {error_rel_x:.10e}\n"
+                f"   Esto equivale aproximadamente a {porcentaje_rel_x:.4f} % de error relativo."
+            )
+        else:
+            pasos.append(
+                "   Como x_v = 0, no se puede dividir entre |x_v| para obtener el error relativo.\n"
+                "   En este caso se dice que el error relativo tiende a infinito (no está definido)."
+            )
+
+        pasos.append("")
+        pasos.append("4) Evaluación de la función f(x) = sin(x) + x²")
+        pasos.append(
+            "   Primero evaluamos la función en el valor verdadero x_v:\n"
+            f"      f(x_v) = sin(x_v) + x_v² = sin({x_v:.10f}) + ({x_v:.10f})² = {f_v:.10f}"
+        )
+        pasos.append(
+            "   Luego evaluamos la misma función en el valor aproximado x_a:\n"
+            f"      f(x_a) = sin(x_a) + x_a² = sin({x_a:.10f}) + ({x_a:.10f})² = {f_a:.10f}"
+        )
+        pasos.append("")
+        pasos.append(
+            "   Si f(x_a) está muy cerca de f(x_v), significa que el error en x no se ha amplificado "
+            "demasiado al pasar por la función. Si están muy separados, la función es sensible a "
+            "los cambios en x (propagación del error)."
+        )
+
+        self.txt_pasos.setPlainText("\n".join(pasos))
+
+        # ---------- Interpretación general (solo en términos de x y valores de f) ----------
         texto = (
             f"El error relativo en x es aproximadamente {porcentaje_rel_x:.4f} %. "
-            f"Al evaluar la función f(x) = sin(x) + x², el error relativo en f(x) "
-            f"es aproximadamente {porcentaje_rel_f:.4f} %. "
-            "Si el error relativo en f(x) es mayor que el de x, la función amplifica "
-            "los errores (propagación del error). La cantidad |f'(x_v)|·E_a es una "
-            "estimación teórica del error en f(x) causado por el error en x."
+            "Este porcentaje indica qué tan grande es la diferencia entre el valor aproximado "
+            "x_a y el valor verdadero x_v, comparada con el propio valor verdadero. "
+            "Al comparar f(x_v) y f(x_a) puedes observar visualmente si la función "
+            "f(x) = sin(x) + x² amplifica o no el error que había originalmente en x."
         )
         self.lbl_interpretacion.setText(texto)
 

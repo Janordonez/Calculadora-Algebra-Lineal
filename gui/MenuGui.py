@@ -123,12 +123,19 @@ class MenuGui(QWidget):
         self.btn_vectores.clicked.connect(self.abrir_vectores)
         btn_layout.addWidget(self.btn_vectores, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        # 🔹 Nuevo botón: Errores Numéricos
+        # Botón Errores Numéricos (original)
         self.btn_errores = QPushButton("Errores Numéricos  ➔", self.container)
         self.btn_errores.setFont(f_btn)
         self.btn_errores.setFixedWidth(460)
         self.btn_errores.clicked.connect(self.abrir_errores)
         btn_layout.addWidget(self.btn_errores, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        # 🔹 NUEVO botón: Métodos Numéricos (Bisección / Regla Falsa)
+        self.btn_metodos = QPushButton("Métodos Numéricos  ➔", self.container)
+        self.btn_metodos.setFont(f_btn)
+        self.btn_metodos.setFixedWidth(460)
+        self.btn_metodos.clicked.connect(self.abrir_metodos_numericos)
+        btn_layout.addWidget(self.btn_metodos, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Botón Salir (original)
         self.btn_salir = QPushButton("Salir", self.container)
@@ -158,8 +165,15 @@ class MenuGui(QWidget):
         self.lbl_grupo.setStyleSheet("color: #38bdf8; background: transparent; border: none;")
         self.lbl_grupo.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        # Sombra en botones (incluyendo el nuevo de errores)
-        for btn in [self.btn_matrices, self.btn_operaciones, self.btn_vectores, self.btn_errores, self.btn_salir]:
+        # Sombra en botones (incluyendo el nuevo de Métodos)
+        for btn in [
+            self.btn_matrices,
+            self.btn_operaciones,
+            self.btn_vectores,
+            self.btn_errores,
+            self.btn_metodos,
+            self.btn_salir,
+        ]:
             sombra = QGraphicsDropShadowEffect()
             sombra.setBlurRadius(25)
             sombra.setOffset(0, 6)
@@ -221,9 +235,11 @@ class MenuGui(QWidget):
         self.lbl_fecha.adjustSize()
         self.lbl_fecha.move(self.width() - self.lbl_fecha.width() - 28, 18)
         self.lbl_grupo.adjustSize()
-        self.lbl_grupo.move(self.width() - self.lbl_grupo.width() - 28, self.height() - self.lbl_grupo.height() - 12)
+        self.lbl_grupo.move(self.width() - self.lbl_grupo.width() - 28,
+                            self.height() - self.lbl_grupo.height() - 12)
         self.lbl_hora.adjustSize()
-        self.lbl_hora.move((self.width() - self.lbl_hora.width()) // 2, self.height() - self.lbl_hora.height() - 18)
+        self.lbl_hora.move((self.width() - self.lbl_hora.width()) // 2,
+                           self.height() - self.lbl_hora.height() - 18)
 
     def animar_fondo(self):
         self.fondo_offset += self.fondo_direction * 1
@@ -273,6 +289,15 @@ class MenuGui(QWidget):
             self.close()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir ErroresGui:\n{e}")
+
+    def abrir_metodos_numericos(self):
+        try:
+            from gui.MetodosNumericosGui import MetodosNumericosGui
+            self.metodos = MetodosNumericosGui()
+            self.metodos.show()
+            self.close()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo abrir MetodosNumericosGui:\n{e}")
 
     def cerrar_programa(self):
         QApplication.quit()
