@@ -7,26 +7,214 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 
+import numpy as np
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
 from models.logica_metodos_numericos import (
     evaluar_funcion,
     biseccion,
     regla_falsa,
+    newton_raphson,
+    metodo_secante,
+    normalizar_expresion_usuario,
+    contexto_matematico,
 )
 
+import re
+
+# =============================================================================
+# PARSER PARA CAMPOS NUMÉRICOS (permite π, etc.)
+# =============================================================================
+
+def numero_desde_texto(txt: str) -> float:
+    """
+    Convierte un texto como '3', 'pi/2', '2π', '1e-3', etc., en float.
+    Usa el mismo normalizador y contexto que f(x).
+    """
+    s = txt.strip()
+    if not s:
+        raise ValueError("Campo numérico vacío.")
+    expr_norm = normalizar_expresion_usuario(s)
+    ctx = contexto_matematico()
+    try:
+        val = eval(expr_norm, {"__builtins__": {}}, ctx)
+        return float(val)
+    except Exception as e:
+        raise ValueError(f"Valor incorrecto: {txt}") from e
+
+
+# =============================================================================
+# CAMPO MATEMÁTICO (superíndices, atajos, etc.)
+# =============================================================================
+
+SUP_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+NORMAL_DIGITS = "0123456789"
+DIGIT_TO_SUP = str.maketrans(NORMAL_DIGITS + "-", SUP_DIGITS + "⁻")
+
+
+class CampoMatematico(QLineEdit):
+    """
+    QLineEdit que soporta:
+    - ↑ dos veces: modo superíndice (², ³, ⁻¹, etc.)
+    - Ctrl+R: √()
+    - Ctrl+3: ∛()
+    - Ctrl+L: ln()
+    - Ctrl+S: sen()
+    - Ctrl+P: π
+    """
+    def __init__(self):
+        super().__init__()
+        self._ultima_flecha = False
+        self._modo_superindice = False
+
+    def keyPressEvent(self, e):
+        key = e.key()
+        txt = e.text()
+        mods = e.modifiers()
+
+        # Doble flecha arriba -> modo superíndice
+        if key == Qt.Key.Key_Up:
+            if self._ultima_flecha:
+                self._modo_superindice = True
+                self._ultima_flecha = False
+                return
+            self._ultima_flecha = True
+            super().keyPressEvent(e)
+            return
+        self._ultima_flecha = False
+
+        if self._modo_superindice:
+            if txt.isdigit():
+                self.insert(txt.translate(DIGIT_TO_SUP))
+                return
+            if txt == "-" or key == Qt.Key.Key_Minus:
+                self.insert("⁻")
+                return
+            if key in (
+                Qt.Key.Key_Down,
+                Qt.Key.Key_Space,
+                Qt.Key.Key_Right,
+                Qt.Key.Key_Plus,
+            ):
+                self._modo_superindice = False
+                if key == Qt.Key.Key_Down:
+                    return
+            elif key == Qt.Key.Key_Backspace:
+                pass
+            else:
+                self._modo_superindice = False
+
+        # Tecla ^ -> ² rápido
+        if key == Qt.Key.Key_AsciiCircum:
+            self.insert("²")
+            return
+
+        # Atajos Ctrl + ...
+        if mods == Qt.KeyboardModifier.ControlModifier:
+            if key == Qt.Key.Key_R:
+                self.insert("√()")
+                self.setCursorPosition(self.cursorPosition() - 1)
+                return
+            if key == Qt.Key.Key_3:
+                self.insert("∛()")
+                self.setCursorPosition(self.cursorPosition() - 1)
+                return
+            if key == Qt.Key.Key_L:
+                self.insert("ln()")
+                self.setCursorPosition(self.cursorPosition() - 1)
+                return
+            if key == Qt.Key.Key_S:
+                self.insert("sen()")
+                self.setCursorPosition(self.cursorPosition() - 1)
+                return
+            if key == Qt.Key.Key_P:
+                self.insert("π")
+                return
+
+        super().keyPressEvent(e)
+
+
+# =============================================================================
+# WIDGET DE GRÁFICA
+# =============================================================================
+
+class GraficaWidget(FigureCanvas):
+    def __init__(self, parent=None):
+        self.fig = Figure(figsize=(4, 3))
+        super().__init__(self.fig)
+        self.setParent(parent)
+        self.ax = self.fig.add_subplot(111)
+        self._estilizar()
+
+    def _estilizar(self):
+        self.fig.patch.set_facecolor("#020617")
+        self.ax.set_facecolor("#020617")
+        for spine in self.ax.spines.values():
+            spine.set_color("#e5e7eb")
+        self.ax.tick_params(colors="#e5e7eb")
+        self.ax.grid(True, color="#334155", alpha=0.5)
+        self.ax.set_xlabel("x", color="#e5e7eb")
+        self.ax.set_ylabel("f(x)", color="#e5e7eb")
+
+    def limpiar(self):
+        self.fig.clear()
+        self.ax = self.fig.add_subplot(111)
+        self._estilizar()
+        self.draw()
+
+    def dibujar_funcion_y_raiz(self, expr: str, x_min: float, x_max: float,
+                               raiz, evaluar_funcion_callable):
+        self.limpiar()
+
+        if x_min == x_max:
+            x_min -= 1.0
+            x_max += 1.0
+        if x_min > x_max:
+            x_min, x_max = x_max, x_min
+
+        xs = np.linspace(x_min, x_max, 400)
+        ys = []
+        for x in xs:
+            try:
+                y = evaluar_funcion_callable(expr, float(x))
+                ys.append(y if np.isfinite(y) else np.nan)
+            except Exception:
+                ys.append(np.nan)
+
+        ys = np.array(ys)
+        self.ax.plot(xs, ys, label="f(x)")
+        self.ax.axhline(0, linestyle="--", linewidth=1, label="Eje x")
+
+        if raiz is not None:
+            try:
+                y_r = evaluar_funcion_callable(expr, float(raiz))
+                if np.isfinite(y_r):
+                    self.ax.scatter([raiz], [y_r], s=40, zorder=5, label="Raíz aprox.")
+            except Exception:
+                pass
+
+        self.ax.legend(facecolor="#020617", edgecolor="#334155", labelcolor="#e5e7eb")
+        self.draw()
+
+
+# =============================================================================
+# VENTANA PRINCIPAL
+# =============================================================================
 
 class MetodosNumericosGui(QWidget):
     """
-    Ventana para métodos numéricos:
-    - Bisección
-    - Regla Falsa
+    Ventana para Bisección, Regla Falsa, Newton-Raphson y Secante.
 
-    Usa la lógica definida en models.logica_metodos_numericos.
+    - B / RF: usan intervalo [a, b] que debe encerrar la raíz.
+    - N     : método de Newton-Raphson (abierto), SOLO x0 (punto inicial).
+    - S     : método de la Secante (abierto), x0 y x1 (dos aproximaciones).
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Métodos Numéricos - Bisección y Regla Falsa")
-        self.resize(1000, 650)
+        self.setWindowTitle("Métodos Numéricos - Cerrados y Abiertos")
+        self.resize(1150, 720)
 
         self._configurar_estilos()
         self._crear_ui()
@@ -79,13 +267,13 @@ class MetodosNumericosGui(QWidget):
         main_layout.setSpacing(10)
 
         # Título
-        lbl_titulo = QLabel("Métodos Numéricos: Bisección y Regla Falsa")
+        lbl_titulo = QLabel("Métodos Numéricos: Bisección, Regla Falsa, Newton-Raphson y Secante")
         f_titulo = QFont("Segoe UI", 18, QFont.Weight.Bold)
         lbl_titulo.setFont(f_titulo)
         lbl_titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(lbl_titulo)
 
-        # Panel de parámetros
+        # Panel superior de parámetros
         panel = QWidget(self)
         grid = QGridLayout(panel)
         grid.setHorizontalSpacing(10)
@@ -93,10 +281,18 @@ class MetodosNumericosGui(QWidget):
 
         fila = 0
 
-        # Método (texto simple: B / RF)
-        lbl_metodo = QLabel("Método (B/RF):")
-        self.txt_metodo = QLineEdit("B")  # B = Bisección, RF = Regla Falsa
-        self.txt_metodo.setToolTip("Escribe B para Bisección o RF para Regla Falsa")
+        # Método
+        lbl_metodo = QLabel("Método (B / RF / N / S):")
+        self.txt_metodo = CampoMatematico()
+        self.txt_metodo.setText("B")
+        self.txt_metodo.setToolTip(
+            "Escribe:\n"
+            "  B  = Bisección (intervalo [a,b])\n"
+            "  RF = Regla Falsa (intervalo [a,b])\n"
+            "  N  = Newton-Raphson (x0 punto inicial)\n"
+            "  S  = Secante (x0 y x1 aproximaciones)"
+        )
+        self.txt_metodo.textChanged.connect(self._actualizar_campos_por_metodo)
 
         grid.addWidget(lbl_metodo, fila, 0)
         grid.addWidget(self.txt_metodo, fila, 1)
@@ -104,31 +300,39 @@ class MetodosNumericosGui(QWidget):
         # f(x)
         fila += 1
         lbl_fx = QLabel("f(x) =")
-        self.txt_fx = QLineEdit("x**3 - 4*x + 1")
+        self.txt_fx = CampoMatematico()
+        self.txt_fx.setText("x³ - 4x + 1")
+        self.txt_fx.setPlaceholderText("Ej: x^3 - 4x + 1, sen(x), ln(x), √(x), etc.")
         grid.addWidget(lbl_fx, fila, 0)
         grid.addWidget(self.txt_fx, fila, 1, 1, 3)
 
-        # a y b
+        # a / x0 y b / x1
         fila += 1
-        lbl_a = QLabel("Límite inferior a:")
-        self.txt_a = QLineEdit("0")
-        grid.addWidget(lbl_a, fila, 0)
-        grid.addWidget(self.txt_a, fila, 1)
+        self.lbl_a = QLabel("a (extremo izquierdo):")
+        self.txt_a = CampoMatematico()
+        self.txt_a.setText("0")
 
-        lbl_b = QLabel("Límite superior b:")
-        self.txt_b = QLineEdit("2")
-        grid.addWidget(lbl_b, fila, 2)
+        self.lbl_b = QLabel("b (extremo derecho):")
+        self.txt_b = CampoMatematico()
+        self.txt_b.setText("2")
+
+        grid.addWidget(self.lbl_a, fila, 0)
+        grid.addWidget(self.txt_a, fila, 1)
+        grid.addWidget(self.lbl_b, fila, 2)
         grid.addWidget(self.txt_b, fila, 3)
 
         # tol y max_iter
         fila += 1
-        lbl_tol = QLabel("Error deseado (tol):")
-        self.txt_tol = QLineEdit("0.0001")
-        grid.addWidget(lbl_tol, fila, 0)
-        grid.addWidget(self.txt_tol, fila, 1)
+        self.lbl_tol = QLabel("Tolerancia de convergencia Ea (ej: 0.0001):")
+        self.txt_tol = CampoMatematico()
+        self.txt_tol.setText("0.0001")
 
         lbl_max_iter = QLabel("Máx. iteraciones:")
-        self.txt_max_iter = QLineEdit("50")
+        self.txt_max_iter = CampoMatematico()
+        self.txt_max_iter.setText("50")
+
+        grid.addWidget(self.lbl_tol, fila, 0)
+        grid.addWidget(self.txt_tol, fila, 1)
         grid.addWidget(lbl_max_iter, fila, 2)
         grid.addWidget(self.txt_max_iter, fila, 3)
 
@@ -155,24 +359,77 @@ class MetodosNumericosGui(QWidget):
 
         main_layout.addWidget(panel)
 
-        # Iteraciones
-        lbl_iter = QLabel("Iteraciones (paso a paso):")
+        # Parte inferior: texto + gráfica
+        lbl_iter = QLabel("Tabla de iteraciones, explicación y gráfica:")
         main_layout.addWidget(lbl_iter)
+
+        bottom_layout = QHBoxLayout()
+        bottom_layout.setSpacing(12)
 
         self.txt_iter = QTextEdit()
         self.txt_iter.setReadOnly(True)
-        main_layout.addWidget(self.txt_iter, stretch=1)
+
+        self.grafica_widget = GraficaWidget(self)
+
+        bottom_layout.addWidget(self.txt_iter, stretch=1)
+        bottom_layout.addWidget(self.grafica_widget, stretch=1)
+
+        main_layout.addLayout(bottom_layout, stretch=1)
 
         # Resultado final
         self.lbl_resultado = QLabel("Resultado final: (pendiente de cálculo)")
         self.lbl_resultado.setWordWrap(True)
         main_layout.addWidget(self.lbl_resultado)
 
-    # ---------------------------------------------------------
-    # Acciones
-    # ---------------------------------------------------------
+        # Ajustar campos iniciales según método B
+        self._actualizar_campos_por_metodo(self.txt_metodo.text())
+
+    # -------------------------------------------------------------------------
+    # Actualización dinámica de campos según el método
+    # -------------------------------------------------------------------------
+    def _actualizar_campos_por_metodo(self, txt: str):
+        m = txt.strip().upper()
+        if m == "B":
+            self.lbl_a.setText("a (extremo izquierdo del intervalo):")
+            self.lbl_b.setText("b (extremo derecho del intervalo):")
+            self.txt_b.setEnabled(True)
+            self.txt_b.setPlaceholderText("")
+            self.lbl_tol.setText("Tolerancia de convergencia Ea (ej: 0.0001):")
+
+        elif m == "RF":
+            self.lbl_a.setText("a (extremo izquierdo del intervalo):")
+            self.lbl_b.setText("b (extremo derecho del intervalo):")
+            self.txt_b.setEnabled(True)
+            self.txt_b.setPlaceholderText("")
+            self.lbl_tol.setText("Tolerancia de convergencia Ea (ej: 0.0001):")
+
+        elif m == "N":
+            self.lbl_a.setText("Punto inicial X₀:")
+            self.lbl_b.setText("X₁ (no se usa en Newton)")
+            self.txt_b.setEnabled(False)
+            self.txt_b.setPlaceholderText("No se usa")
+            self.lbl_tol.setText("Tolerancia de convergencia Ea (ej: 0.0001):")
+
+        elif m == "S":
+            self.lbl_a.setText("X₀ (primera aproximación):")
+            self.lbl_b.setText("X₁ (segunda aproximación):")
+            self.txt_b.setEnabled(True)
+            self.txt_b.setPlaceholderText("")
+            self.lbl_tol.setText("Tolerancia de convergencia Ea (ej: 0.0001):")
+
+        else:
+            # Cualquier otra cosa: tratamos como Bisección por defecto
+            self.lbl_a.setText("a (extremo izquierdo del intervalo):")
+            self.lbl_b.setText("b (extremo derecho del intervalo):")
+            self.txt_b.setEnabled(True)
+            self.txt_b.setPlaceholderText("")
+            self.lbl_tol.setText("Tolerancia de convergencia Ea (ej: 0.0001):")
+
+    # -------------------------------------------------------------------------
+    # Acciones básicas
+    # -------------------------------------------------------------------------
     def limpiar(self):
-        self.txt_fx.setText("x**3 - 4*x + 1")
+        self.txt_fx.setText("x³ - 4x + 1")
         self.txt_a.setText("0")
         self.txt_b.setText("2")
         self.txt_tol.setText("0.0001")
@@ -180,6 +437,7 @@ class MetodosNumericosGui(QWidget):
         self.txt_metodo.setText("B")
         self.txt_iter.clear()
         self.lbl_resultado.setText("Resultado final: (pendiente de cálculo)")
+        self.grafica_widget.limpiar()
 
     def volver_menu(self):
         try:
@@ -190,143 +448,336 @@ class MetodosNumericosGui(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo regresar al menú:\n{e}")
 
+    # -------------------------------------------------------------------------
+    # Lógica principal
+    # -------------------------------------------------------------------------
     def calcular(self):
         expr = self.txt_fx.text().strip()
-        metodo_texto = self.txt_metodo.text().strip().upper()
+        metodo = self.txt_metodo.text().strip().upper()
 
-        if metodo_texto not in ("B", "RF"):
+        if metodo not in ("B", "RF", "N", "S"):
             QMessageBox.warning(
                 self,
                 "Método inválido",
-                "Escribe B para Bisección o RF para Regla Falsa."
+                "Métodos válidos:\n"
+                "  B  = Bisección\n"
+                "  RF = Regla Falsa\n"
+                "  N  = Newton-Raphson\n"
+                "  S  = Secante"
             )
             return
 
+        # Leer tolerancia y máx. iteraciones
         try:
-            a = float(self.txt_a.text())
-            b = float(self.txt_b.text())
-            tol = float(self.txt_tol.text())
-            max_iter = int(self.txt_max_iter.text())
-        except ValueError:
-            QMessageBox.critical(self, "Error", "Parámetros numéricos inválidos.")
-            return
-
-        # Validar intervalo
-        try:
-            fa = evaluar_funcion(expr, a)
-            fb = evaluar_funcion(expr, b)
+            tol = float(numero_desde_texto(self.txt_tol.text()))
+            max_iter = int(numero_desde_texto(self.txt_max_iter.text()))
         except Exception as e:
-            QMessageBox.critical(self, "Error al evaluar f(x)", str(e))
+            QMessageBox.critical(self, "Error", f"Tolerancia o iteraciones inválidas:\n{e}")
             return
 
-        if fa * fb > 0:
-            QMessageBox.warning(
-                self,
-                "Intervalo inválido",
-                "f(a)*f(b) > 0.\nNo hay cambio de signo en el intervalo [a,b]."
-            )
-            return
-
-        # Elegir método
-        if metodo_texto == "B":
-            funcion_metodo = biseccion
-            nombre = "Bisección"
-        else:
-            funcion_metodo = regla_falsa
-            nombre = "Regla Falsa"
-
+        # Según el método pedimos lo que toca
         try:
-            raiz, historia, intervalo_final, error_final = funcion_metodo(
-                expr, a, b, tol, max_iter
-            )
+            if metodo in ("B", "RF", "S"):
+                a = float(numero_desde_texto(self.txt_a.text()))
+                b = float(numero_desde_texto(self.txt_b.text()))
+            elif metodo == "N":
+                a = float(numero_desde_texto(self.txt_a.text()))   # x0
+                b = None
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Datos numéricos inválidos:\n{e}")
+            return
+
+        # Validaciones por método
+        if metodo in ("B", "RF"):
+            # Métodos cerrados: verificar cambio de signo
+            try:
+                fa = evaluar_funcion(expr, a)
+                fb = evaluar_funcion(expr, b)
+            except Exception as e:
+                QMessageBox.critical(self, "Error al evaluar f(x)", str(e))
+                return
+
+            if fa * fb > 0:
+                QMessageBox.warning(
+                    self,
+                    "Intervalo inválido",
+                    "f(a)*f(b) > 0.\nNo hay cambio de signo en el intervalo [a,b]."
+                )
+                return
+
+        if metodo == "S":
+            if a == b:
+                QMessageBox.warning(
+                    self,
+                    "Error",
+                    "Para la Secante, X₀ y X₁ deben ser distintos."
+                )
+                return
+
+        # Ejecutar el método
+        try:
+            if metodo == "B":
+                nombre = "Bisección"
+                raiz, historia, intervalo_final, error_final = biseccion(
+                    expr, a, b, tol, max_iter
+                )
+                self._mostrar_iteraciones(historia, nombre)
+                texto_res = (
+                    f"Método: {nombre} | "
+                    f"Raíz aproximada: {raiz:.10f} | "
+                    f"Iteraciones: {len(historia)} | "
+                    f"Error relativo final (%): {error_final:.8f} | "
+                    f"Intervalo final: [{intervalo_final[0]:.8f}, {intervalo_final[1]:.8f}]"
+                )
+                self._dibujar_grafica(expr, "B", raiz, historia, a, b)
+
+            elif metodo == "RF":
+                nombre = "Regla Falsa"
+                raiz, historia, intervalo_final, error_final = regla_falsa(
+                    expr, a, b, tol, max_iter
+                )
+                self._mostrar_iteraciones(historia, nombre)
+                texto_res = (
+                    f"Método: {nombre} | "
+                    f"Raíz aproximada: {raiz:.10f} | "
+                    f"Iteraciones: {len(historia)} | "
+                    f"Error relativo final (%): {error_final:.8f} | "
+                    f"Intervalo final: [{intervalo_final[0]:.8f}, {intervalo_final[1]:.8f}]"
+                )
+                self._dibujar_grafica(expr, "RF", raiz, historia, a, b)
+
+            elif metodo == "N":
+                nombre = "Newton-Raphson"
+                raiz, historia, error_final = newton_raphson(
+                    expr, a, tol, max_iter
+                )
+                self._mostrar_iteraciones(historia, nombre)
+                texto_res = (
+                    f"Método: {nombre} | "
+                    f"Punto inicial X₀: {a:.8f} | "
+                    f"Raíz aproximada: {raiz:.10f} | "
+                    f"Iteraciones: {len(historia)} | "
+                    f"Error relativo final (%): {error_final:.8f}"
+                )
+                # Para la gráfica, usamos el recorrido de las aproximaciones
+                self._dibujar_grafica(expr, "N", raiz, historia, a, a)
+
+            else:  # S
+                nombre = "Secante"
+                raiz, historia, error_final = metodo_secante(
+                    expr, a, b, tol, max_iter
+                )
+                self._mostrar_iteraciones(historia, nombre)
+                texto_res = (
+                    f"Método: {nombre} | "
+                    f"X₀: {a:.8f}, X₁: {b:.8f} | "
+                    f"Raíz aproximada: {raiz:.10f} | "
+                    f"Iteraciones: {len(historia)} | "
+                    f"Error relativo final (%): {error_final:.8f}"
+                )
+                self._dibujar_grafica(expr, "S", raiz, historia, a, b)
+
         except Exception as e:
             QMessageBox.critical(self, "Error en el método numérico", str(e))
             return
 
-        # Mostrar iteraciones
-        self._mostrar_iteraciones(historia, nombre)
-
-        # Resultado final
-        texto_res = (
-            f"Método: {nombre} | "
-            f"Raíz aproximada: {raiz:.10f} | "
-            f"Iteraciones: {len(historia)} | "
-            f"Error relativo final (%): {error_final:.6f} | "
-            f"Intervalo final: [{intervalo_final[0]:.6f}, {intervalo_final[1]:.6f}]"
-        )
         self.lbl_resultado.setText(texto_res)
 
-    def _mostrar_iteraciones(self, historia, nombre_metodo: str):
-        """
-        Muestra la tabla de iteraciones en el QTextEdit.
+    # -------------------------------------------------------------------------
+    # Gráfica
+    # -------------------------------------------------------------------------
+    def _dibujar_grafica(self, expr: str, metodo: str,
+                         raiz, historia, a: float, b: float):
+        metodo = metodo.upper()
 
-        - Bisección: 9 columnas (sin Ea<E).
-        - Regla Falsa: 9 columnas (con Ea<E).
-        """
+        if metodo in ("B", "RF"):
+            x_min, x_max = min(a, b), max(a, b)
+        elif metodo == "N":
+            xs = [fila["x"] for fila in historia] if historia else [a]
+            x_min, x_max = min(xs), max(xs)
+            margen = (x_max - x_min) * 0.3 if x_max != x_min else 1.0
+            x_min -= margen
+            x_max += margen
+        else:  # Secante
+            xs = []
+            for fila in historia:
+                xs.append(fila["x_prev"])
+                xs.append(fila["x"])
+            if not xs:
+                xs = [a, b]
+            x_min, x_max = min(xs), max(xs)
+            margen = (x_max - x_min) * 0.3 if x_max != x_min else 1.0
+            x_min -= margen
+            x_max += margen
+
+        self.grafica_widget.dibujar_funcion_y_raiz(
+            expr=expr,
+            x_min=x_min,
+            x_max=x_max,
+            raiz=raiz,
+            evaluar_funcion_callable=evaluar_funcion
+        )
+
+    # -------------------------------------------------------------------------
+    # Mostrar iteraciones + explicación (paso a paso)
+    # -------------------------------------------------------------------------
+    def _mostrar_iteraciones(self, historia, nombre_metodo: str):
         self.txt_iter.clear()
 
+        # ===================== BISECCIÓN =====================
         if nombre_metodo == "Bisección":
             encabezado = (
-                f"=== Iteraciones (Bisección) ===\n"
-                f"{'Iter':>4} | {'xl':>8} | {'xu':>8} | {'xr':>8} | "
-                f"{'Ea %':>8} | {'f(xl)':>10} | {'f(xu)':>10} | "
-                f"{'f(xr)':>10} | {'(xu-xl)':>10}\n"
-                + "-" * 96
+                "=== Iteraciones - Método de Bisección ===\n"
+                " i  |      X_l     |      X_u     |      X_r     |"
+                "     f(X_l)     |     f(X_u)     |     f(X_r)     |   E_a(%)   |      ΔX\n"
+                + "-" * 122
             )
             self.txt_iter.append(encabezado)
-
             for fila in historia:
-                err_str = "---"
+                err_str = "---------"
                 if fila["error_pct"] is not None:
-                    err_str = f"{fila['error_pct']:8.4f}"
-
+                    err_str = f"{fila['error_pct']:10.6f}"
                 linea = (
-                    f"{fila['iter']:4d} | "
-                    f"{fila['a']:8.4f} | "
-                    f"{fila['b']:8.4f} | "
-                    f"{fila['x']:8.4f} | "
-                    f"{err_str:>8} | "
-                    f"{fila['fa']:10.4f} | "
-                    f"{fila['fb']:10.4f} | "
-                    f"{fila['fx']:10.4f} | "
-                    f"{fila['len_interval']:10.4f}"
+                    f"{fila['iter']:2d} | "
+                    f"{fila['a']:12.8f} | "
+                    f"{fila['b']:12.8f} | "
+                    f"{fila['x']:12.8f} | "
+                    f"{fila['fa']:13.8f} | "
+                    f"{fila['fb']:13.8f} | "
+                    f"{fila['fx']:13.8f} | "
+                    f"{err_str:>10} | "
+                    f"{fila['len_interval']:10.8f}"
                 )
                 self.txt_iter.append(linea)
 
-        else:  # Regla Falsa
+            # Paso a paso textual
+            self.txt_iter.append("\n=== Paso a paso (Bisección) ===")
+            for fila in historia:
+                self.txt_iter.append(
+                    f"Iteración {fila['iter']}: Intervalo [X_l={fila['a']:.8f}, X_u={fila['b']:.8f}], "
+                    f"X_r = (X_l + X_u)/2 = {fila['x']:.8f}, f(X_r) = {fila['fx']:.8f}, "
+                    f"ΔX = {fila['len_interval']:.8f}"
+                )
+
+        # ===================== REGLA FALSA =====================
+        elif nombre_metodo == "Regla Falsa":
             encabezado = (
-                f"=== Iteraciones (Regla Falsa) ===\n"
-                f"{'Iter':>4} | {'xl':>8} | {'xu':>8} | {'xr':>8} | "
-                f"{'Ea %':>8} | {'f(xl)':>10} | {'f(xu)':>10} | "
-                f"{'f(xr)':>10} | {'Ea<E':>6}\n"
-                + "-" * 96
+                "=== Iteraciones - Método de Regla Falsa ===\n"
+                " i  |      X_l     |      X_u     |      X_r     |"
+                "     f(X_l)     |     f(X_u)     |     f(X_r)     |   E_a(%)   | Ea<E\n"
+                + "-" * 122
             )
             self.txt_iter.append(encabezado)
-
             for fila in historia:
-                err_str = "---"
+                err_str = "---------"
                 if fila["error_pct"] is not None:
-                    err_str = f"{fila['error_pct']:8.4f}"
+                    err_str = f"{fila['error_pct']:10.6f}"
                 ea_flag = "True" if fila.get("ea_less_tol") else "False"
-
                 linea = (
-                    f"{fila['iter']:4d} | "
-                    f"{fila['a']:8.4f} | "
-                    f"{fila['b']:8.4f} | "
-                    f"{fila['x']:8.4f} | "
-                    f"{err_str:>8} | "
-                    f"{fila['fa']:10.4f} | "
-                    f"{fila['fb']:10.4f} | "
-                    f"{fila['fx']:10.4f} | "
-                    f"{ea_flag:>6}"
+                    f"{fila['iter']:2d} | "
+                    f"{fila['a']:12.8f} | "
+                    f"{fila['b']:12.8f} | "
+                    f"{fila['x']:12.8f} | "
+                    f"{fila['fa']:13.8f} | "
+                    f"{fila['fb']:13.8f} | "
+                    f"{fila['fx']:13.8f} | "
+                    f"{err_str:>10} | "
+                    f"{ea_flag:>5}"
                 )
                 self.txt_iter.append(linea)
 
+            # Paso a paso textual
+            self.txt_iter.append("\n=== Paso a paso (Regla Falsa) ===")
+            for fila in historia:
+                self.txt_iter.append(
+                    f"Iteración {fila['iter']}: Intervalo [X_l={fila['a']:.8f}, X_u={fila['b']:.8f}], "
+                    f"X_r calculado por Regla Falsa = {fila['x']:.8f}, f(X_r) = {fila['fx']:.8f}, "
+                    f"E_a(%) ≈ {fila['error_pct'] if fila['error_pct'] is not None else 0:.6f}"
+                )
 
-# Para probar esta ventana sola:
+        # ===================== NEWTON-RAPHSON =====================
+        elif nombre_metodo == "Newton-Raphson":
+            encabezado = (
+                "=== Iteraciones - Método de Newton-Raphson ===\n"
+                " i  |       X_i       |      f(X_i)     |     f'(X_i)     |    E_a(%)   \n"
+                + "-" * 96
+            )
+            self.txt_iter.append(encabezado)
+            for fila in historia:
+                linea = (
+                    f"{fila['iter']:2d} | "
+                    f"{fila['x']:14.8f} | "
+                    f"{fila['fx']:14.8f} | "
+                    f"{fila['dfx']:14.8f} | "
+                    f"{fila['error_pct']:10.6f}"
+                )
+                self.txt_iter.append(linea)
+
+            # Paso a paso textual
+            self.txt_iter.append("\n=== Paso a paso (Newton-Raphson) ===")
+            for fila in historia:
+                self.txt_iter.append(
+                    f"Iteración {fila['iter']}: X_i = {fila['x']:.8f}, "
+                    f"f(X_i) = {fila['fx']:.8f}, f'(X_i) ≈ {fila['dfx']:.8f}, "
+                    f"E_a(%) ≈ {fila['error_pct']:.6f}"
+                )
+
+        # ===================== SECANTE =====================
+        else:  # Secante
+            encabezado = (
+                "=== Iteraciones - Método de la Secante ===\n"
+                " i  |    X_{i-1}    |      X_i      |   f(X_{i-1})  |     f(X_i)    |   E_a(%)   \n"
+                + "-" * 100
+            )
+            self.txt_iter.append(encabezado)
+            for fila in historia:
+                linea = (
+                    f"{fila['iter']:2d} | "
+                    f"{fila['x_prev']:12.8f} | "
+                    f"{fila['x']:12.8f} | "
+                    f"{fila['fx_prev']:13.8f} | "
+                    f"{fila['fx']:13.8f} | "
+                    f"{fila['error_pct']:10.6f}"
+                )
+                self.txt_iter.append(linea)
+
+            # Paso a paso textual
+            self.txt_iter.append("\n=== Paso a paso (Secante) ===")
+            for fila in historia:
+                self.txt_iter.append(
+                    f"Iteración {fila['iter']}: X_{'{i-1}'} = {fila['x_prev']:.8f}, "
+                    f"X_i ≈ {fila['x']:.8f}, f(X_{'{i-1}'}) = {fila['fx_prev']:.8f}, "
+                    f"f(X_i) = {fila['fx']:.8f}, E_a(%) ≈ {fila['error_pct']:.6f}"
+                )
+
+        # Explicación corta final
+        self.txt_iter.append("\n\n=== Comentario del método ===")
+        if nombre_metodo == "Bisección":
+            self.txt_iter.append(
+                "Bisección: método cerrado. Requiere [a,b] con cambio de signo, "
+                "divide el intervalo a la mitad en cada iteración y garantiza convergencia."
+            )
+        elif nombre_metodo == "Regla Falsa":
+            self.txt_iter.append(
+                "Regla Falsa: método cerrado. Usa la recta que une (X_l,f(X_l)) y (X_u,f(X_u)) "
+                "para aproximar la raíz; mantiene el cambio de signo en [a,b]."
+            )
+        elif nombre_metodo == "Newton-Raphson":
+            self.txt_iter.append(
+                "Newton-Raphson: método abierto. Requiere solo un punto inicial X₀ y la derivada; "
+                "es muy rápido si X₀ está cerca de la raíz, pero puede divergir."
+            )
+        else:
+            self.txt_iter.append(
+                "Secante: método abierto. Usa dos aproximaciones iniciales X₀ y X₁, "
+                "y construye secantes en lugar de la derivada exacta."
+            )
+
+
+# Para pruebas rápidas
 if __name__ == "__main__":
-    import sys
     from PyQt6.QtWidgets import QApplication
+    import sys
 
     app = QApplication(sys.argv)
     win = MetodosNumericosGui()
