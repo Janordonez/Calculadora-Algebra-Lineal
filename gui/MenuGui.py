@@ -291,7 +291,7 @@ class MenuGui(QWidget):
         try:
             from gui.ErroresGui import ErroresGui
             self.errores = ErroresGui()
-            self.errores.show()
+            self.errores.showMaximized()
             self.close()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir ErroresGui:\n{e}")
@@ -300,7 +300,7 @@ class MenuGui(QWidget):
         try:
             from gui.MetodosNumericosGui import MetodosNumericosGui
             self.metodos = MetodosNumericosGui()
-            self.metodos.show()
+            self.metodos.showMaximized()
             self.close()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir MetodosNumericosGui:\n{e}")

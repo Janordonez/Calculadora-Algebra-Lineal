@@ -82,6 +82,20 @@ class EntradaGui(QWidget):
 
         self.main_layout.addWidget(self.frame_nombres, alignment=Qt.AlignmentFlag.AlignCenter)
 
+        # Mostrar todos los nombres de inmediato (sin delays)
+        for idx, name in enumerate(self.nombres):
+            try:
+                self.labels_nombres[idx].setText(name)
+            except Exception:
+                pass
+        # Asegurar que el marco con nombres esté visible
+        try:
+            self.frame_nombres.show()
+        except Exception:
+            pass
+        # Marcar como ya mostrados
+        self.nombre_idx = len(self.nombres)
+
         # Botón principal "Bienvenido"
         self.btn_bienvenido = QPushButton("Bienvenido 🧮")
         self.btn_bienvenido.setFont(QFont("Segoe UI", 25, QFont.Weight.Bold))
@@ -120,14 +134,15 @@ class EntradaGui(QWidget):
         self.lbl_grupo.hide()
 
         # Timers
-        self.nombre_idx = 0
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.mostrar_siguiente_nombre)
-        self.timer.start(800)
-
+        # Nota: se eliminó el timer que mostraba los nombres con retraso y el singleShot
+        # para habilitar el botón; los nombres se muestran y el botón se habilita inmediatamente.
         self.fondo_timer = QTimer(self)
         self.fondo_timer.timeout.connect(self.animar_fondo)
         self.fondo_timer.start(40)
+
+        # Mostrar el texto de grupo y habilitar el botón sin delay
+        self.lbl_grupo.show()
+        self._habilitar_boton()
 
         self.showFullScreen()
 
@@ -186,7 +201,8 @@ class EntradaGui(QWidget):
             self.lbl_grupo.show()
 
     def permitir_boton_despues_de_nombres(self):
-        QTimer.singleShot(3000, self._habilitar_boton)
+        # Habilitar inmediatamente (sin delay)
+        self._habilitar_boton()
 
     def _habilitar_boton(self):
         self.btn_bienvenido.setEnabled(True)

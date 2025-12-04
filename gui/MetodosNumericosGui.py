@@ -282,20 +282,25 @@ class MetodosNumericosGui(QWidget):
         fila = 0
 
         # Método
-        lbl_metodo = QLabel("Método (B / RF / N / S):")
-        self.txt_metodo = CampoMatematico()
-        self.txt_metodo.setText("B")
-        self.txt_metodo.setToolTip(
-            "Escribe:\n"
-            "  B  = Bisección (intervalo [a,b])\n"
-            "  RF = Regla Falsa (intervalo [a,b])\n"
-            "  N  = Newton-Raphson (x0 punto inicial)\n"
-            "  S  = Secante (x0 y x1 aproximaciones)"
+        lbl_metodo = QLabel("Método:")
+        from PyQt6.QtWidgets import QComboBox
+        self.cmb_metodo = QComboBox()
+        # Añadimos etiquetas legibles y datos cortos ('B','RF','N','S')
+        self.cmb_metodo.addItem("B - Bisección", "B")
+        self.cmb_metodo.addItem("RF - Regla Falsa", "RF")
+        self.cmb_metodo.addItem("N - Newton-Raphson", "N")
+        self.cmb_metodo.addItem("S - Secante", "S")
+        self.cmb_metodo.setToolTip(
+            "Selecciona el método:\n"
+            "B  = Bisección (intervalo [a,b])\n"
+            "RF = Regla Falsa (intervalo [a,b])\n"
+            "N  = Newton-Raphson (x0 punto inicial)\n"
+            "S  = Secante (x0 y x1 aproximaciones)"
         )
-        self.txt_metodo.textChanged.connect(self._actualizar_campos_por_metodo)
+        self.cmb_metodo.currentIndexChanged.connect(lambda _: self._actualizar_campos_por_metodo(self.cmb_metodo.currentData()))
 
         grid.addWidget(lbl_metodo, fila, 0)
-        grid.addWidget(self.txt_metodo, fila, 1)
+        grid.addWidget(self.cmb_metodo, fila, 1)
 
         # f(x)
         fila += 1
@@ -305,6 +310,12 @@ class MetodosNumericosGui(QWidget):
         self.txt_fx.setPlaceholderText("Ej: x^3 - 4x + 1, sen(x), ln(x), √(x), etc.")
         grid.addWidget(lbl_fx, fila, 0)
         grid.addWidget(self.txt_fx, fila, 1, 1, 3)
+        # Formateo en tiempo real: convertir potencias a superíndices mientras el usuario escribe
+        try:
+            self.txt_fx.textChanged.connect(self._format_fx_realtime)
+            self._last_fx_text = self.txt_fx.text()
+        except Exception:
+            pass
 
         # a / x0 y b / x1
         fila += 1
@@ -387,13 +398,25 @@ class MetodosNumericosGui(QWidget):
         main_layout.addWidget(self.lbl_resultado)
 
         # Ajustar campos iniciales según método B
-        self._actualizar_campos_por_metodo(self.txt_metodo.text())
+        # Inicializar campos según método seleccionado (usar data del combo)
+        try:
+            sel = self.cmb_metodo.currentData()
+        except Exception:
+            sel = 'B'
+        self._actualizar_campos_por_metodo(sel)
 
     # -------------------------------------------------------------------------
     # Actualización dinámica de campos según el método
     # -------------------------------------------------------------------------
     def _actualizar_campos_por_metodo(self, txt: str):
-        m = txt.strip().upper()
+        # `txt` puede ser la letra ('B','RF','N','S') o el índice (si viene de la señal antigua)
+        try:
+            if isinstance(txt, int):
+                m = self.cmb_metodo.currentData()
+            else:
+                m = str(txt).strip().upper()
+        except Exception:
+            m = 'B'
         if m == "B":
             self.lbl_a.setText("a (extremo izquierdo del intervalo):")
             self.lbl_b.setText("b (extremo derecho del intervalo):")
@@ -439,7 +462,11 @@ class MetodosNumericosGui(QWidget):
         self.txt_b.setText("2")
         self.txt_tol.setText("0.0001")
         self.txt_max_iter.setText("50")
-        self.txt_metodo.setText("B")
+        # Seleccionar Bisección por defecto en el combo
+        try:
+            self.cmb_metodo.setCurrentIndex(0)
+        except Exception:
+            pass
         self.txt_iter.clear()
         self.lbl_resultado.setText("Resultado final: (pendiente de cálculo)")
         self.grafica_widget.limpiar()
@@ -458,7 +485,10 @@ class MetodosNumericosGui(QWidget):
     # -------------------------------------------------------------------------
     def calcular(self):
         expr = self.txt_fx.text().strip()
-        metodo = self.txt_metodo.text().strip().upper()
+        try:
+            metodo = self.cmb_metodo.currentData()
+        except Exception:
+            metodo = 'B'
 
         if metodo not in ("B", "RF", "N", "S"):
             QMessageBox.warning(
@@ -623,11 +653,69 @@ class MetodosNumericosGui(QWidget):
             evaluar_funcion_callable=evaluar_funcion
         )
 
+    def _format_fx_realtime(self, text: str):
+        """Formato en tiempo real de `self.txt_fx`.
+
+        Convierte notación de potencia `**n`, `^n` o `^(n)` en superíndices Unicode.
+        Intenta preservar la posición del cursor de forma aproximada.
+        """
+        try:
+            old = getattr(self, '_last_fx_text', '')
+            raw = text
+            if raw == old:
+                return
+
+            import re
+            # función para convertir dígitos y signo a superíndice
+            def to_sup(m):
+                s = m.group(1) or m.group(2)
+                # usar DIGIT_TO_SUP definido al inicio del archivo
+                try:
+                    out = s.replace('/', '⁄')
+                    return out.translate(DIGIT_TO_SUP)
+                except Exception:
+                    return '^(' + s + ')'
+
+            # normalizar '**' a '^'
+            t = raw.replace('**', '^')
+            # reemplazar ^(digits or digits) or ^digits
+            t2 = re.sub(r"\^\(([^)]+)\)|\^([0-9+\-\/]+)", to_sup, t)
+
+            if t2 != raw:
+                # ajustar cursor: intento simple basado en longitudes
+                cursor = self.txt_fx.cursorPosition()
+                delta = len(t2) - len(raw)
+                # bloquear señal para evitar recursión
+                self.txt_fx.blockSignals(True)
+                self.txt_fx.setText(t2)
+                # recompute cursor position conservatively
+                new_pos = max(0, min(len(t2), cursor + delta))
+                self.txt_fx.setCursorPosition(new_pos)
+                self.txt_fx.blockSignals(False)
+                self._last_fx_text = t2
+            else:
+                self._last_fx_text = raw
+        except Exception:
+            try:
+                self._last_fx_text = text
+            except Exception:
+                pass
+
     # -------------------------------------------------------------------------
     # Mostrar iteraciones + explicación (paso a paso)
     # -------------------------------------------------------------------------
     def _mostrar_iteraciones(self, historia, nombre_metodo: str):
         self.txt_iter.clear()
+
+        # Mostrar función y derivada usada al inicio del procedimiento
+        try:
+            func_expr = self.txt_fx.text().strip() if hasattr(self, 'txt_fx') else ''
+            if func_expr:
+                self.txt_iter.append(f"f(x) = {func_expr}")
+            # Indicar la derivada numérica que se usa (derivada numérica central)
+            self.txt_iter.append("Derivada usada (numérica, centrada): f'(x) ≈ (f(x+h)-f(x-h)) / (2h)")
+        except Exception:
+            pass
 
         # ===================== BISECCIÓN =====================
         if nombre_metodo == "Bisección":
@@ -676,10 +764,34 @@ class MetodosNumericosGui(QWidget):
 
                 # Funciones evaluadas con sustitución textual (si es posible)
                 def _subs(expr_text, val):
+                    """Sustituye 'x' por el valor (formateado) y convierte potencias a superíndices.
+
+                    Ejemplos: '(x)^2' o 'x**2' -> '(1.23456789)²'
+                    """
                     try:
-                        return expr_text.replace('x', f'({val:.8f})')
+                        s = expr_text.replace('x', f'({val:.8f})')
                     except Exception:
                         return expr_text
+
+                    # Normalizar '**' a '^' para manejar potencias uniformemente
+                    s = s.replace('**', '^')
+
+                    # Función auxiliar para convertir una cadena de dígitos/signos a superíndice
+                    def _make_super(inner: str) -> str:
+                        # Usamos la tabla DIGIT_TO_SUP definida más arriba
+                        # Reemplazamos '/' por la barra fraccionaria unicode para mejor apariencia
+                        try:
+                            tmp = inner.replace('/', '⁄')
+                            return tmp.translate(DIGIT_TO_SUP)
+                        except Exception:
+                            # Fallback simple
+                            return '^(' + inner + ')'
+
+                    # Reemplazar ^( ... ) o ^digits por superíndice
+                    import re
+                    s = re.sub(r"\^\(([^)]+)\)|\^([0-9+\-\/]+)", lambda m: _make_super(m.group(1) or m.group(2)), s)
+
+                    return s
 
                 # Formateo de valor con signo similar al ejemplo
                 def _fmt(val):

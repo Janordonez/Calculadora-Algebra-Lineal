@@ -189,66 +189,66 @@ def biseccion(expr: str, a: float, b: float, tol: float, max_iter: int = 100):
         intervalo_final: (a_final, b_final)
         error_final: error relativo porcentual final
     """
-    fa = evaluar_funcion(expr, a)
-    fb = evaluar_funcion(expr, b)
+    fa = evaluar_funcion(expr, a)  # evalúa f(a)
+    fb = evaluar_funcion(expr, b)  # evalúa f(b)
 
-    if fa * fb > 0:
-        raise ValueError("El intervalo no es válido: f(a) y f(b) tienen el mismo signo.")
+    if fa * fb > 0:  # revisa que haya cambio de signo en los extremos
+        raise ValueError("El intervalo no es válido: f(a) y f(b) tienen el mismo signo.")  # error si mismo signo
 
-    historia = []
-    x_old = None
-    error_final = None
+    historia = []  # inicializa la lista de historial
+    x_old = None  # guarda la aproximación anterior
+    error_final = None  # guardará el error final en %
 
-    for i in range(1, max_iter + 1):
-        x_mid = (a + b) / 2.0
-        fx_mid = evaluar_funcion(expr, x_mid)
-        len_interval = abs(b - a)
+    for i in range(1, max_iter + 1):  # ciclo principal de iteraciones
+        x_mid = (a + b) / 2.0  # calcula el punto medio
+        fx_mid = evaluar_funcion(expr, x_mid)  # evalúa f en el punto medio
+        len_interval = abs(b - a)  # longitud del intervalo actual
 
-        if x_old is None:
-            error_rel = None
+        if x_old is None:  # sin aproximación anterior en la primera iteración
+            error_rel = None  # no hay error relativo aún
         else:
-            if x_mid != 0:
-                error_rel = abs((x_mid - x_old) / x_mid)
+            if x_mid != 0:  # evita división por cero al calcular error relativo
+                error_rel = abs((x_mid - x_old) / x_mid)  # error relativo
             else:
-                error_rel = abs(x_mid - x_old)
+                error_rel = abs(x_mid - x_old)  # error absoluto si x_mid == 0
 
-        error_pct = None if error_rel is None else error_rel * 100.0
+        error_pct = None if error_rel is None else error_rel * 100.0  # error en porcentaje
 
-        historia.append(
+        historia.append(  # añade registro de la iteración al historial
             {
-                "iter": i,
-                "a": a,
-                "b": b,
-                "x": x_mid,
-                "fa": fa,
-                "fb": fb,
-                "fx": fx_mid,
-                "error_pct": error_pct,
-                "len_interval": len_interval,
+                "iter": i,  # número de iteración
+                "a": a,  # extremo izquierdo
+                "b": b,  # extremo derecho
+                "x": x_mid,  # aproximación actual (punto medio)
+                "fa": fa,  # f(a)
+                "fb": fb,  # f(b)
+                "fx": fx_mid,  # f(x_mid)
+                "error_pct": error_pct,  # error en %
+                "len_interval": len_interval,  # tamaño del intervalo
             }
         )
 
         # Criterio de paro con tolerancia en término relativo (no en %)
-        if error_rel is not None and error_rel < tol:
-            error_final = error_pct
-            break
+        if error_rel is not None and error_rel < tol:  # verifica si se cumple la tolerancia
+            error_final = error_pct  # guarda el error final
+            break  # sale del bucle
 
         # Actualizar intervalo según el signo
-        if fa * fx_mid < 0:
-            b = x_mid
-            fb = fx_mid
+        if fa * fx_mid < 0:  # la raíz está en [a, x_mid]
+            b = x_mid  # actualiza extremo derecho
+            fb = fx_mid  # actualiza f(b)
         else:
-            a = x_mid
-            fa = fx_mid
+            a = x_mid  # actualiza extremo izquierdo
+            fa = fx_mid  # actualiza f(a)
 
-        x_old = x_mid
+        x_old = x_mid  # actualiza la aproximación anterior
 
-    raiz_aprox = x_mid
-    if error_final is None:
-        error_final = error_pct
+    raiz_aprox = x_mid  # aproximación final de la raíz
+    if error_final is None:  # si no se alcanzó la tolerancia
+        error_final = error_pct  # usa el último error calculado
 
-    intervalo_final = (a, b)
-    return raiz_aprox, historia, intervalo_final, error_final
+    intervalo_final = (a, b)  # intervalo final que contiene la raíz
+    return raiz_aprox, historia, intervalo_final, error_final  # retorna resultados
 
 
 # =============================================================================
@@ -268,75 +268,75 @@ def regla_falsa(expr: str, a: float, b: float, tol: float, max_iter: int = 100):
     Retorna:
         raiz_aprox, historia, intervalo_final, error_final
     """
-    fa = evaluar_funcion(expr, a)
-    fb = evaluar_funcion(expr, b)
+    fa = evaluar_funcion(expr, a)  # evalúa f(a)
+    fb = evaluar_funcion(expr, b)  # evalúa f(b)
 
-    if fa * fb > 0:
-        raise ValueError("El intervalo no es válido: f(a) y f(b) tienen el mismo signo.")
+    if fa * fb > 0:  # verifica que haya cambio de signo en los extremos
+        raise ValueError("El intervalo no es válido: f(a) y f(b) tienen el mismo signo.")  # error si mismo signo
 
-    historia = []
-    x_old = None
-    error_final = None
+    historia = []  # lista para guardar historial de iteraciones
+    x_old = None  # aproximación anterior inicial nula
+    error_final = None  # guardará el error final en %
 
-    for i in range(1, max_iter + 1):
-        denom = (fb - fa)
-        if denom == 0:
-            raise ZeroDivisionError("fb - fa = 0, no se puede continuar en Regla Falsa.")
+    for i in range(1, max_iter + 1):  # bucle principal de iteraciones
+        denom = (fb - fa)  # denominador de la fórmula de regla falsa
+        if denom == 0:  # evita división por cero
+            raise ZeroDivisionError("fb - fa = 0, no se puede continuar en Regla Falsa.")  # error crítico
 
         # Fórmula de Regla Falsa:
         # x_r = b - f(b)*(b - a)/(f(b) - f(a))
-        x_r = b - fb * (b - a) / denom
-        f_xr = evaluar_funcion(expr, x_r)
-        len_interval = abs(b - a)
+        x_r = b - fb * (b - a) / denom  # nueva aproximación por regla falsa
+        f_xr = evaluar_funcion(expr, x_r)  # evalúa f en la nueva aproximación
+        len_interval = abs(b - a)  # longitud actual del intervalo
 
-        if x_old is None:
-            error_rel = None
+        if x_old is None:  # sin aproximación anterior en la primera iteración
+            error_rel = None  # no se puede calcular error relativo aún
         else:
-            if x_r != 0:
-                error_rel = abs((x_r - x_old) / x_r)
+            if x_r != 0:  # evita división por cero al calcular error relativo
+                error_rel = abs((x_r - x_old) / x_r)  # error relativo
             else:
-                error_rel = abs(x_r - x_old)
+                error_rel = abs(x_r - x_old)  # usa error absoluto si x_r == 0
 
-        error_pct = None if error_rel is None else error_rel * 100.0
-        ea_less_tol = False
-        if error_rel is not None and error_rel < tol:
-            ea_less_tol = True
+        error_pct = None if error_rel is None else error_rel * 100.0  # error en porcentaje
+        ea_less_tol = False  # bandera si el error es menor que la tolerancia
+        if error_rel is not None and error_rel < tol:  # verifica criterio de paro
+            ea_less_tol = True  # marca que se alcanzó la tolerancia
 
-        historia.append(
+        historia.append(  # añade registro de la iteración al historial
             {
-                "iter": i,
-                "a": a,
-                "b": b,
-                "x": x_r,
-                "fa": fa,
-                "fb": fb,
-                "fx": f_xr,
-                "error_pct": error_pct,
-                "ea_less_tol": ea_less_tol,
-                "len_interval": len_interval,
+                "iter": i,  # número de iteración
+                "a": a,  # extremo izquierdo actual
+                "b": b,  # extremo derecho actual
+                "x": x_r,  # aproximación actual
+                "fa": fa,  # f(a) actual
+                "fb": fb,  # f(b) actual
+                "fx": f_xr,  # f(x_r)
+                "error_pct": error_pct,  # error en %
+                "ea_less_tol": ea_less_tol,  # si cumple la tolerancia
+                "len_interval": len_interval,  # tamaño del intervalo
             }
         )
 
-        if ea_less_tol:
-            error_final = error_pct
-            break
+        if ea_less_tol:  # si se alcanzó la tolerancia, se finaliza
+            error_final = error_pct  # guarda el error final
+            break  # sale del bucle
 
         # Actualizar intervalo según el signo
-        if fa * f_xr < 0:
-            b = x_r
-            fb = f_xr
+        if fa * f_xr < 0:  # la raíz está en [a, x_r]
+            b = x_r  # actualiza extremo derecho
+            fb = f_xr  # actualiza f(b)
         else:
-            a = x_r
-            fa = f_xr
+            a = x_r  # actualiza extremo izquierdo
+            fa = f_xr  # actualiza f(a)
 
-        x_old = x_r
+        x_old = x_r  # actualiza la aproximación anterior
 
-    raiz_aprox = x_r
-    if error_final is None:
-        error_final = error_pct
+    raiz_aprox = x_r  # aproximación final de la raíz
+    if error_final is None:  # si no se alcanzó la tolerancia
+        error_final = error_pct  # usa el último error calculado
 
-    intervalo_final = (a, b)
-    return raiz_aprox, historia, intervalo_final, error_final
+    intervalo_final = (a, b)  # intervalo final que contiene la raíz
+    return raiz_aprox, historia, intervalo_final, error_final  # retorna resultados
 
 
 # =============================================================================
