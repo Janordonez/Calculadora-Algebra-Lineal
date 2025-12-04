@@ -1,7 +1,7 @@
 from gui.MatricesGui import MatricesGui
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QMessageBox,
-    QGraphicsDropShadowEffect
+    QGraphicsDropShadowEffect, QGridLayout   # ⬅️ AGREGADO QGridLayout
 )
 from PyQt6.QtGui import QPixmap, QFont, QColor
 from PyQt6.QtCore import Qt, QTimer, QTime, QDate
@@ -49,8 +49,8 @@ class MenuGui(QWidget):
                 color: #ffffff; /* Texto blanco para mejor contraste */
                 border-radius: 22px;
                 border: 2px solid #325475;
-                padding: 20px 80px;
-                font-size: 28px;
+                padding: 16px 40px;
+                font-size: 22px;
                 font-weight: 700;
                 transition: all 0.2s ease-in-out;
             }
@@ -95,55 +95,61 @@ class MenuGui(QWidget):
         titulo.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.main_layout.addWidget(titulo)
 
-        # Botones
-        btn_layout = QVBoxLayout()
-        btn_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        btn_layout.setSpacing(28)
+        # ---------------------------------------------------------------------
+        # BOTONES (solo se cambió tamaño y disposición: rejilla 2x3)
+        # ---------------------------------------------------------------------
+        btn_layout = QGridLayout()
+        btn_layout.setHorizontalSpacing(30)
+        btn_layout.setVerticalSpacing(24)
+        btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         f_btn = QFont("Segoe UI", 20, QFont.Weight.Bold)
 
-        # Botón Matrices (original)
+        # Ancho uniforme para que quepan dos por fila
+        ancho_botones = 360
+
+        # Botón Matrices
         self.btn_matrices = QPushButton("Matrices  ➔", self.container)
         self.btn_matrices.setFont(f_btn)
-        self.btn_matrices.setFixedWidth(460)
+        self.btn_matrices.setFixedWidth(ancho_botones)
         self.btn_matrices.clicked.connect(self.abrir_matrices)
-        btn_layout.addWidget(self.btn_matrices, alignment=Qt.AlignmentFlag.AlignHCenter)
+        btn_layout.addWidget(self.btn_matrices, 0, 0, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        # Botón Operaciones con Matrices (original)
+        # Botón Operaciones con Matrices
         self.btn_operaciones = QPushButton("Operaciones Matrices  ➔", self.container)
         self.btn_operaciones.setFont(f_btn)
-        self.btn_operaciones.setFixedWidth(460)
+        self.btn_operaciones.setFixedWidth(ancho_botones)
         self.btn_operaciones.clicked.connect(self.abrir_operaciones)
-        btn_layout.addWidget(self.btn_operaciones, alignment=Qt.AlignmentFlag.AlignHCenter)
+        btn_layout.addWidget(self.btn_operaciones, 0, 1, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        # Botón Vectores (original)
+        # Botón Vectores
         self.btn_vectores = QPushButton("Vectores  ➔", self.container)
         self.btn_vectores.setFont(f_btn)
-        self.btn_vectores.setFixedWidth(460)
+        self.btn_vectores.setFixedWidth(ancho_botones)
         self.btn_vectores.clicked.connect(self.abrir_vectores)
-        btn_layout.addWidget(self.btn_vectores, alignment=Qt.AlignmentFlag.AlignHCenter)
+        btn_layout.addWidget(self.btn_vectores, 1, 0, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        # Botón Errores Numéricos (original)
+        # Botón Errores Numéricos
         self.btn_errores = QPushButton("Errores Numéricos  ➔", self.container)
         self.btn_errores.setFont(f_btn)
-        self.btn_errores.setFixedWidth(460)
+        self.btn_errores.setFixedWidth(ancho_botones)
         self.btn_errores.clicked.connect(self.abrir_errores)
-        btn_layout.addWidget(self.btn_errores, alignment=Qt.AlignmentFlag.AlignHCenter)
+        btn_layout.addWidget(self.btn_errores, 1, 1, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        # 🔹 NUEVO botón: Métodos Numéricos (Bisección / Regla Falsa)
+        # Botón Métodos Numéricos
         self.btn_metodos = QPushButton("Métodos Numéricos  ➔", self.container)
         self.btn_metodos.setFont(f_btn)
-        self.btn_metodos.setFixedWidth(460)
+        self.btn_metodos.setFixedWidth(ancho_botones)
         self.btn_metodos.clicked.connect(self.abrir_metodos_numericos)
-        btn_layout.addWidget(self.btn_metodos, alignment=Qt.AlignmentFlag.AlignHCenter)
+        btn_layout.addWidget(self.btn_metodos, 2, 0, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        # Botón Salir (original)
+        # Botón Salir
         self.btn_salir = QPushButton("Salir", self.container)
         f_btn_small = QFont("Segoe UI", 18, QFont.Weight.Bold)
         self.btn_salir.setFont(f_btn_small)
-        self.btn_salir.setFixedWidth(340)
+        self.btn_salir.setFixedWidth(ancho_botones)
         self.btn_salir.clicked.connect(self.cerrar_programa)
-        btn_layout.addWidget(self.btn_salir, alignment=Qt.AlignmentFlag.AlignHCenter)
+        btn_layout.addWidget(self.btn_salir, 2, 1, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         self.main_layout.addLayout(btn_layout)
 

@@ -713,13 +713,39 @@ class MetodosNumericosGui(QWidget):
                 )
                 self.txt_iter.append(linea)
 
-            # Paso a paso textual
+            # Paso a paso textual MEJORADO
             self.txt_iter.append("\n=== Paso a paso (Newton-Raphson) ===")
-            for fila in historia:
+            for idx, fila in enumerate(historia):
+                i = fila["iter"]
+                x_i = fila["x"]
+                fx_i = fila["fx"]
+                dfx_i = fila["dfx"]
+                ea_i = fila["error_pct"]
+
+                # Para vincular con la siguiente aproximación X_{i+1}, usamos la fila siguiente (si existe)
+                if idx + 1 < len(historia):
+                    x_next = historia[idx + 1]["x"]
+                    paso_formula = (
+                        f"     X_{i+1} = X_i - f(X_i)/f'(X_i)\n"
+                        f"           ≈ {x_i:.8f} - ({fx_i:.8f})/({dfx_i:.8f}) "
+                        f"= {x_next:.8f}"
+                    )
+                else:
+                    paso_formula = (
+                        "     X_{i+1} = X_i - f(X_i)/f'(X_i)\n"
+                        "           (esta es la última iteración mostrada, "
+                        "la siguiente X ya no se calcula)."
+                    )
+
                 self.txt_iter.append(
-                    f"Iteración {fila['iter']}: X_i = {fila['x']:.8f}, "
-                    f"f(X_i) = {fila['fx']:.8f}, f'(X_i) ≈ {fila['dfx']:.8f}, "
-                    f"E_a(%) ≈ {fila['error_pct']:.6f}"
+                    f"Iteración {i}:\n"
+                    f"  1) Tomamos X_i = {x_i:.8f}\n"
+                    f"  2) Evaluamos f(X_i) = {fx_i:.8f}\n"
+                    f"  3) Calculamos la derivada f'(X_i) ≈ {dfx_i:.8f}\n"
+                    f"  4) Aplicamos la fórmula de Newton-Raphson:\n"
+                    f"{paso_formula}\n"
+                    f"  5) Calculamos el error relativo porcentual: "
+                    f"E_a(%) ≈ {ea_i:.6f}\n"
                 )
 
         # ===================== SECANTE =====================
@@ -741,13 +767,39 @@ class MetodosNumericosGui(QWidget):
                 )
                 self.txt_iter.append(linea)
 
-            # Paso a paso textual
+            # Paso a paso textual MEJORADO
             self.txt_iter.append("\n=== Paso a paso (Secante) ===")
-            for fila in historia:
+            for idx, fila in enumerate(historia):
+                i = fila["iter"]
+                x_im1 = fila["x_prev"]
+                x_i = fila["x"]
+                fx_im1 = fila["fx_prev"]
+                fx_i = fila["fx"]
+                ea_i = fila["error_pct"]
+
+                if idx + 1 < len(historia):
+                    x_next = historia[idx + 1]["x"]
+                    paso_formula = (
+                        f"     X_{i+1} = X_i - f(X_i)(X_i - X_{i-1}) / (f(X_i) - f(X_{i-1}))\n"
+                        f"           ≈ {x_i:.8f} - ({fx_i:.8f})({x_i:.8f} - {x_im1:.8f}) / "
+                        f"({fx_i:.8f} - {fx_im1:.8f})\n"
+                        f"           ≈ {x_next:.8f}"
+                    )
+                else:
+                    paso_formula = (
+                        "     X_{i+1} = X_i - f(X_i)(X_i - X_{i-1}) / (f(X_i) - f(X_{i-1}))\n"
+                        "           (esta es la última iteración mostrada, "
+                        "la siguiente X ya no se calcula)."
+                    )
+
                 self.txt_iter.append(
-                    f"Iteración {fila['iter']}: X_{'{i-1}'} = {fila['x_prev']:.8f}, "
-                    f"X_i ≈ {fila['x']:.8f}, f(X_{'{i-1}'}) = {fila['fx_prev']:.8f}, "
-                    f"f(X_i) = {fila['fx']:.8f}, E_a(%) ≈ {fila['error_pct']:.6f}"
+                    f"Iteración {i}:\n"
+                    f"  1) Usamos X_{i-1} = {x_im1:.8f} y X_i = {x_i:.8f}\n"
+                    f"  2) Evaluamos f(X_{i-1}) = {fx_im1:.8f} y f(X_i) = {fx_i:.8f}\n"
+                    f"  3) Aplicamos la fórmula de la Secante:\n"
+                    f"{paso_formula}\n"
+                    f"  4) Calculamos el error relativo porcentual: "
+                    f"E_a(%) ≈ {ea_i:.6f}\n"
                 )
 
         # Explicación corta final
