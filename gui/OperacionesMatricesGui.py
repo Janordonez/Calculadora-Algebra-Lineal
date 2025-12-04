@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QInputDialog, QMenu, QComboBox, QCheckBox
 )
 from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt, qInstallMessageHandler
+from PyQt6.QtCore import Qt, qInstallMessageHandler, QtMsgType
 
 # Importamos Matrices y tratamos de importar utilidades de Vectores; si no existen, proveemos un fallback.
 from models.Matrices import Matrices
@@ -83,15 +83,15 @@ except Exception:
 
 def _qt_message_handler(mode, context, message):
     """Manejador para mensajes Qt hacia stdout."""
-    if mode == Qt.MsgType.QtDebugMsg:
+    if mode == QtMsgType.QtDebugMsg:
         sys.stdout.write(f"DEBUG: {message}\n")
-    elif mode == Qt.MsgType.QtInfoMsg:
+    elif mode == QtMsgType.QtInfoMsg:
         sys.stdout.write(f"INFO: {message}\n")
-    elif mode == Qt.MsgType.QtWarningMsg:
+    elif mode == QtMsgType.QtWarningMsg:
         sys.stdout.write(f"WARNING: {message}\n")
-    elif mode == Qt.MsgType.QtCriticalMsg:
+    elif mode == QtMsgType.QtCriticalMsg:
         sys.stdout.write(f"CRITICAL: {message}\n")
-    elif mode == Qt.MsgType.QtFatalMsg:
+    elif mode == QtMsgType.QtFatalMsg:
         sys.stdout.write(f"FATAL: {message}\n")
         sys.exit(1)
 
@@ -321,6 +321,12 @@ class OperacionesMatricesGui(QWidget):
         self.setLayout(layout)
 
         self.reload_saved()
+        # Abrir la ventana maximizada para aprovechar pantalla del usuario
+        try:
+            self.showMaximized()
+        except Exception:
+            # Fallback silencioso si el método no está disponible
+            pass
 
     # ---------------- Utilidades de salida ----------------
     def _set_result_text(self, content):
@@ -501,8 +507,11 @@ class OperacionesMatricesGui(QWidget):
 
     def ir_a_menu(self):
         try:
-            from gui.MenuGui import MenuGui
+            # Importar MenuGui de la forma consistente con otros módulos
+            # (al ejecutar desde Main.py la carpeta `gui` está en sys.path)
+            from MenuGui import MenuGui
             self.menu = MenuGui()
+            # MenuGui internamente usa showFullScreen(); llamar show() está bien
             self.menu.show()
             self.close()
         except Exception as e:

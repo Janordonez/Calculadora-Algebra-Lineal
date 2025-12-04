@@ -2,7 +2,7 @@
 
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QLineEdit, QPushButton, QTextEdit,
-    QVBoxLayout, QHBoxLayout, QGridLayout, QMessageBox
+    QVBoxLayout, QHBoxLayout, QGridLayout, QMessageBox, QDialog
 )
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
@@ -350,8 +350,13 @@ class MetodosNumericosGui(QWidget):
         self.btn_volver = QPushButton("Regresar al Menú")
         self.btn_volver.clicked.connect(self.volver_menu)
 
+        self.btn_expand = QPushButton("Expandir procedimiento")
+        self.btn_expand.setToolTip("Ver todo el procedimiento en una ventana ampliada")
+        self.btn_expand.clicked.connect(self._expandir_procedimiento)
+
         btn_layout.addWidget(self.btn_calcular)
         btn_layout.addWidget(self.btn_limpiar)
+        btn_layout.addWidget(self.btn_expand)
         btn_layout.addStretch(1)
         btn_layout.addWidget(self.btn_volver)
 
@@ -650,14 +655,69 @@ class MetodosNumericosGui(QWidget):
                 )
                 self.txt_iter.append(linea)
 
-            # Paso a paso textual
+            # Paso a paso textual (formato detallado similar al ejemplo)
             self.txt_iter.append("\n=== Paso a paso (Bisección) ===")
+            func_expr = self.txt_fx.text().strip() if hasattr(self, 'txt_fx') else ''
             for fila in historia:
-                self.txt_iter.append(
-                    f"Iteración {fila['iter']}: Intervalo [X_l={fila['a']:.8f}, X_u={fila['b']:.8f}], "
-                    f"X_r = (X_l + X_u)/2 = {fila['x']:.8f}, f(X_r) = {fila['fx']:.8f}, "
-                    f"ΔX = {fila['len_interval']:.8f}"
+                i = fila['iter']
+                xl = fila['a']
+                xu = fila['b']
+                xr = fila['x']
+                fa = fila.get('fa')
+                fb = fila.get('fb')
+                fr = fila.get('fx')
+                ea = fila.get('error_pct') if fila.get('error_pct') is not None else 0.0
+
+                # Línea resumen con extremos y punto medio
+                resumen = (
+                    f"Iteración {i}:\n"
+                    f"  x_l = x_i = {xl:.8f}    x_u = {xu:.8f}    c = x_r = (x_l + x_u)/2 -> c = x_r = {xr:.8f}    Ea = {ea:.3f}"
                 )
+
+                # Funciones evaluadas con sustitución textual (si es posible)
+                def _subs(expr_text, val):
+                    try:
+                        return expr_text.replace('x', f'({val:.8f})')
+                    except Exception:
+                        return expr_text
+
+                # Formateo de valor con signo similar al ejemplo
+                def _fmt(val):
+                    try:
+                        return f"{val:+.8f}"
+                    except Exception:
+                        return str(val)
+
+                v_lines = []
+                if func_expr:
+                    v_lines.append(f"  v_l = v_1 = f(x_l) = f({xl:.8f}) = {_subs(func_expr, xl)} = {_fmt(fa)}")
+                    v_lines.append(f"  v_u = f(x_u) = f({xu:.8f}) = {_subs(func_expr, xu)} = {_fmt(fb)}")
+                    v_lines.append(f"  v_r = f(x_r) = f({xr:.8f}) = {_subs(func_expr, xr)} = {_fmt(fr)}")
+                else:
+                    v_lines.append(f"  v_l = f(x_l) = { _fmt(fa) }")
+                    v_lines.append(f"  v_u = f(x_u) = { _fmt(fb) }")
+                    v_lines.append(f"  v_r = f(x_r) = { _fmt(fr) }")
+
+                # Producto y decisión
+                try:
+                    prod = (fa if fa is not None else 0.0) * (fr if fr is not None else 0.0)
+                except Exception:
+                    prod = None
+
+                if prod is not None:
+                    prod_str = f"({_fmt(fa)}) · ({_fmt(fr)})"
+                    signo_check = "< 0" if prod < 0 else (">= 0" if prod > 0 else "= 0")
+                    decision = (
+                        f"  f(x_l) · f(x_r) -> {prod_str} {signo_check}    La raíz está entre -> [x_l, x_r] -> [{xl:.8f}, {xr:.8f}]"
+                    )
+                else:
+                    decision = f"  f(x_l) · f(x_r) -> (no disponible)    Intervalo -> [{xl:.8f}, {xr:.8f}]"
+
+                self.txt_iter.append(resumen)
+                for ln in v_lines:
+                    self.txt_iter.append(ln)
+                self.txt_iter.append("")
+                self.txt_iter.append(decision)
 
         # ===================== REGLA FALSA =====================
         elif nombre_metodo == "Regla Falsa":
@@ -723,13 +783,27 @@ class MetodosNumericosGui(QWidget):
                 ea_i = fila["error_pct"]
 
                 # Para vincular con la siguiente aproximación X_{i+1}, usamos la fila siguiente (si existe)
+                func_expr = self.txt_fx.text().strip() if hasattr(self, 'txt_fx') else ''
                 if idx + 1 < len(historia):
                     x_next = historia[idx + 1]["x"]
+                    # Mostrar la fórmula simbólica y luego la sustitución numérica paso a paso
                     paso_formula = (
-                        f"     X_{i+1} = X_i - f(X_i)/f'(X_i)\n"
-                        f"           ≈ {x_i:.8f} - ({fx_i:.8f})/({dfx_i:.8f}) "
-                        f"= {x_next:.8f}"
+                        f"     X_{{i+1}} = X_i - f(X_i)/f'(X_i)\n"
+                        f"           ≈ {x_i:.8f} - (f({x_i:.8f}))/ (f'({x_i:.8f}))\n"
+                        f"           ≈ {x_i:.8f} - ({fx_i:.8f})/({dfx_i:.8f})\n"
+                        f"           = {x_next:.8f}"
                     )
+                    # También mostrar la función con la sustitución si está disponible
+                    if func_expr:
+                        try:
+                            func_sub = func_expr.replace('x', f'({x_i:.8f})')
+                        except Exception:
+                            func_sub = func_expr
+                        paso_formula = (
+                            paso_formula + "\n" +
+                            f"           f({x_i:.8f}) = {func_sub} = {fx_i:.8f}\n"
+                            f"           f'({x_i:.8f}) ≈ {dfx_i:.8f}"
+                        )
                 else:
                     paso_formula = (
                         "     X_{i+1} = X_i - f(X_i)/f'(X_i)\n"
@@ -780,14 +854,14 @@ class MetodosNumericosGui(QWidget):
                 if idx + 1 < len(historia):
                     x_next = historia[idx + 1]["x"]
                     paso_formula = (
-                        f"     X_{i+1} = X_i - f(X_i)(X_i - X_{i-1}) / (f(X_i) - f(X_{i-1}))\n"
-                        f"           ≈ {x_i:.8f} - ({fx_i:.8f})({x_i:.8f} - {x_im1:.8f}) / "
-                        f"({fx_i:.8f} - {fx_im1:.8f})\n"
+                        f"     X_{{i+1}} = X_i - f(X_i)(X_{{i-1}} - X_i) / (f(X_{{i-1}}) - f(X_i))\n"
+                        f"           ≈ {x_i:.8f} - ({fx_i:.8f})({x_im1:.8f} - {x_i:.8f}) / "
+                        f"({fx_im1:.8f} - {fx_i:.8f})\n"
                         f"           ≈ {x_next:.8f}"
                     )
                 else:
                     paso_formula = (
-                        "     X_{i+1} = X_i - f(X_i)(X_i - X_{i-1}) / (f(X_i) - f(X_{i-1}))\n"
+                        "     X_{i+1} = X_i - f(X_i)(X_{i-1} - X_i) / (f(X_{i-1}) - f(X_i))\n"
                         "           (esta es la última iteración mostrada, "
                         "la siguiente X ya no se calcula)."
                     )
@@ -824,6 +898,30 @@ class MetodosNumericosGui(QWidget):
                 "Secante: método abierto. Usa dos aproximaciones iniciales X₀ y X₁, "
                 "y construye secantes en lugar de la derivada exacta."
             )
+
+    def _expandir_procedimiento(self):
+        """Abre un diálogo resizable que muestra todo el contenido de `self.txt_iter`."""
+        try:
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Procedimiento completo")
+            dialog.resize(1000, 700)
+            v = QVBoxLayout(dialog)
+            te = QTextEdit(dialog)
+            te.setReadOnly(True)
+            te.setPlainText(self.txt_iter.toPlainText())
+            te.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+            v.addWidget(te)
+            # Botón de cerrar simple
+            btn_close = QPushButton("Cerrar", dialog)
+            btn_close.clicked.connect(dialog.accept)
+            h = QHBoxLayout()
+            h.addStretch(1)
+            h.addWidget(btn_close)
+            v.addLayout(h)
+            dialog.setLayout(v)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo abrir el diálogo:\n{e}")
 
 
 # Para pruebas rápidas
