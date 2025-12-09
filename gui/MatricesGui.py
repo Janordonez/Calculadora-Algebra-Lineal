@@ -432,6 +432,9 @@ class MatricesGui(QWidget):
             usados = set([c for c in pivote_col if c != -1])
             basicas = [f"x{p+1}" for p in usados]
             libres = [f"x{j+1}" for j in range(m) if j not in usados]
+            # Columnas con pivotes (1-based) y clasificación de variables
+            pivot_cols_1based = [p+1 for p in sorted(usados)]
+            txt += f"\nColumnas con pivotes (1-based): {pivot_cols_1based if pivot_cols_1based else 'Ninguna'}"
             txt += f"\nVariables básicas (VB): {', '.join(basicas) if basicas else 'Ninguna'}"
             txt += f"\nVariables libres (VL): {', '.join(libres) if libres else 'Ninguna'}"
 
@@ -449,6 +452,11 @@ class MatricesGui(QWidget):
                 self._graficar_si_corresponde(a, b, info["solucion"])
             else:
                 txt += "⚠️ SISTEMA CONSISTENTE INDETERMINADO (sol paramétrica):\n"
+                # Mostrar columnas con pivotes y variables libres claramente
+                txt += f"\nColumnas con pivotes (1-based): {pivot_cols_1based if pivot_cols_1based else 'Ninguna'}\n"
+                txt += f"Variables libres (parámetros): {', '.join(libres) if libres else 'Ninguna'}\n\n"
+                # Mostrar la solución paramétrica tal como la devuelve la lógica,
+                # indicando la variable y su expresión en función de los parámetros.
                 for idx, expr in enumerate(info.get("solucion_parametrica", [])):
                     txt += f" x{idx+1} = {expr}\n"
                 self._graficar_si_corresponde(a, b, None)

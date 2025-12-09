@@ -365,6 +365,7 @@ class MetodosNumericosGui(QWidget):
         self.btn_expand.setToolTip("Ver todo el procedimiento en una ventana ampliada")
         self.btn_expand.clicked.connect(self._expandir_procedimiento)
 
+
         btn_layout.addWidget(self.btn_calcular)
         btn_layout.addWidget(self.btn_limpiar)
         btn_layout.addWidget(self.btn_expand)
@@ -386,9 +387,24 @@ class MetodosNumericosGui(QWidget):
         self.txt_iter.setReadOnly(True)
 
         self.grafica_widget = GraficaWidget(self)
+        # Compatibilidad: algunos sitios del código pueden esperar `self.grafica`
+        # (nombre antiguo). Creamos un alias para evitar AttributeError.
+        self.grafica = self.grafica_widget
 
         bottom_layout.addWidget(self.txt_iter, stretch=1)
-        bottom_layout.addWidget(self.grafica_widget, stretch=1)
+        # Contenedor de la gráfica con botón para expandir
+        graf_container = QVBoxLayout()
+        graf_container.setSpacing(6)
+        graf_container.addWidget(self.grafica_widget, stretch=1)
+        btn_holder = QHBoxLayout()
+        btn_holder.addStretch(1)
+        self.btn_expand_graph = QPushButton("🔍 Expandir")
+        self.btn_expand_graph.setFixedHeight(32)
+        self.btn_expand_graph.setToolTip("Abrir la gráfica en una ventana ampliada")
+
+        btn_holder.addWidget(self.btn_expand_graph)
+        graf_container.addLayout(btn_holder)
+        bottom_layout.addLayout(graf_container, stretch=1)
 
         main_layout.addLayout(bottom_layout, stretch=1)
 
