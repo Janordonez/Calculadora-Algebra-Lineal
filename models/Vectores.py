@@ -117,8 +117,50 @@ def solucionMatrizVector(vectores: list[list[float]]) -> str:
                 break
         if inconsistente:
             proceso.append("El sistema es incompatible (no tiene solución).")
+            proceso.append("Nota: La comprobación de dependencia lineal que sigue sólo usa las columnas de coeficientes (Ax=0).")
         elif len(libres) > 0:
             proceso.append("El sistema tiene infinitas soluciones (parámetros libres).")
+            # Construir la solución paramétrica: x = x_particular + sum t_k * v_k
+            num_vars = m - 1
+            # inicializar solución particular con ceros
+            x_particular = [0.0] * num_vars
+            # identificar pivotes por fila (primera columna no-nula)
+            pivot_of_row = [-1] * n
+            for i in range(n):
+                for j in range(num_vars):
+                    if abs(A[i][j]) > 1e-10:
+                        pivot_of_row[i] = j
+                        break
+            # rellenar la solución particular (tomando parámetros libres = 0)
+            for i in range(n):
+                pc = pivot_of_row[i]
+                if pc != -1:
+                    x_particular[pc] = clean(A[i][-1])
+            proceso.append("\nSolución particular (tomando parámetros libres = 0):")
+            proceso.append(str([clean(v) for v in x_particular]))
+            # construir vectores de la base del núcleo (uno por cada variable libre)
+            vectores_nucleo = []
+            libres_indices = [int(s[1:]) - 1 for s in libres]
+            for free_idx in range(num_vars):
+                if free_idx in libres_indices:
+                    vec = [0.0] * num_vars
+                    vec[free_idx] = 1.0
+                    # para cada ecuación/pivote, coef en la variable básica = -A[row][free_idx]
+                    for i in range(n):
+                        pc = pivot_of_row[i]
+                        if pc != -1:
+                            coef = -A[i][free_idx]
+                            vec[pc] = clean(coef)
+                    vectores_nucleo.append((free_idx, vec))
+            proceso.append("\nVectores asociados a parámetros libres (direcciones del espacio solución):")
+            for idx, v in vectores_nucleo:
+                proceso.append(f"t{idx+1} · {v}")
+            # Mostrar la forma general
+            sol_expr = "x = " + str([clean(v) for v in x_particular])
+            for idx, v in vectores_nucleo:
+                sol_expr += f" + t{idx+1}*{v}"
+            proceso.append("\nSolución general en forma paramétrica:")
+            proceso.append(sol_expr)
         else:
             sol = [clean(fila[-1]) for fila in A]
             proceso.append(f"Solución única: {sol}")
@@ -136,21 +178,21 @@ def solucionMatrizVector(vectores: list[list[float]]) -> str:
     # 2. Obtener la solución general del sistema homogéneo Ax=0
     # Usamos la matriz escalonada A (ya reducida arriba)
     # Determinar variables libres y básicas
-    m_coef = len(coeficientes)
+    # Use the reduced row-echelon coefficient matrix (from `A`) to determine pivots
+    m_coef = len(A)
     n_coef = num_vars
-    A_coef = [fila[:] for fila in coeficientes]
+    # Take the coefficient part from the reduced augmented matrix `A`
+    A_coef = [fila[:-1] for fila in A]
+    # Determine pivots by scanning each row of the reduced matrix for the first non-zero
     pivots_coef = []
-    row_coef = 0
-    for col in range(n_coef):
-        found = False
-        for i in range(row_coef, m_coef):
-            if abs(A_coef[i][col]) > 1e-10:
-                found = True
-                pivots_coef.append(col)
-                row_coef += 1
+    pivot_of_row = [-1] * m_coef
+    for i in range(m_coef):
+        for j in range(n_coef):
+            if abs(A_coef[i][j]) > 1e-10:
+                pivots_coef.append(j)
+                pivot_of_row[i] = j
                 break
-        if row_coef >= m_coef:
-            break
+    pivots_coef = list(dict.fromkeys(pivots_coef))
     libres_coef = [j for j in range(n_coef) if j not in pivots_coef]
     # Si hay libres, solución no trivial
     if not libres_coef:
@@ -164,15 +206,21 @@ def solucionMatrizVector(vectores: list[list[float]]) -> str:
         proceso.append("Por lo tanto, los vectores son LINEALMENTE DEPENDIENTES.")
         # Para mostrar una solución no trivial, asigna 1 a la primera libre y despeja las básicas
         valores_c = [0 for _ in range(num_vars)]
+        # Assign 1 to each free parameter to exhibit a non-trivial combination
         for l in libres_coef:
             valores_c[l] = 1
-        # Despejar las básicas hacia atrás
-        for i in reversed(range(len(pivots_coef))):
-            col = pivots_coef[i]
+        # Despejar las variables básicas usando la matriz reducida
+        # Recorremos las filas que tienen pivote y despejamos la variable básica correspondiente
+        for i in range(m_coef):
+            col = pivot_of_row[i]
+            if col == -1:
+                continue
+            # suma de contribuciones de las variables libres en esta fila
             suma = 0
             for j in libres_coef:
-                suma += -A_coef[i][j] * valores_c[j]
-            valores_c[col] = suma / A_coef[i][col] if abs(A_coef[i][col]) > 1e-10 else 0
+                suma += A_coef[i][j] * valores_c[j]
+            # En la forma reducida, el coeficiente de la variable básica debería ser 1
+            valores_c[col] = -suma
         valores_c = [0 if abs(x) < 1e-10 else x for x in valores_c]
         proceso.append("Una combinación lineal no trivial es:")
         proceso.append("  " + ", ".join([f"c{j+1} = {valores_c[j]:.4f}" for j in range(num_vars)]))

@@ -23,6 +23,70 @@ def format_val(x):
 
 
 class Matrices:
+    @staticmethod
+    def inverse_with_steps(mat: List[List[float]], det_method: str = 'Eliminación'):
+        """
+        Calcula la inversa de una matriz cuadrada con pasos detallados y verifica AA^(-1)=I.
+        Devuelve (inversa, pasos:list[str]).
+        """
+        if not Matrices._is_square(mat):
+            raise ValueError("La matriz debe ser cuadrada para calcular la inversa.")
+        n = len(mat)
+        # Calcular determinante
+        if det_method == 'Eliminación':
+            det, det_pasos = Matrices.determinant_with_steps(mat)
+        elif det_method == 'Cofactores':
+            det, det_pasos = Matrices.determinant_cofactor_with_steps(mat)
+        elif det_method == 'Sarrus':
+            det, det_pasos = Matrices.determinant_sarrus_with_steps(mat)
+        elif det_method == 'Cramer':
+            det, det_pasos = Matrices.determinant_cramer_with_steps(mat)
+        else:
+            raise ValueError(f"Método de determinante desconocido: {det_method}")
+        pasos = [f"Método para inversa: {det_method}"] + det_pasos
+        if abs(det) < EPS:
+            pasos.append("La matriz no es invertible (det=0)")
+            return None, pasos
+        # Construir matriz aumentada [A | I]
+        A = [row[:] for row in mat]
+        I = [[float(i == j) for j in range(n)] for i in range(n)]
+        aug = [A[i] + I[i] for i in range(n)]
+        pasos.append("Matriz aumentada [A | I]:")
+        pasos.append(Matrices._mat_to_str_frac(aug))
+        # Gauss-Jordan para obtener [I | A^{-1}]
+        for col in range(n):
+            # Selección de pivote con pivoteo parcial (máximo absoluto) para mayor estabilidad
+            max_row = max(range(col, n), key=lambda r: abs(aug[r][col]))
+            if abs(aug[max_row][col]) < EPS:
+                pasos.append(f"No hay pivote significativo en columna {col+1}, inversa no existe.")
+                return None, pasos
+            sel = max_row
+            if sel != col:
+                aug[col], aug[sel] = aug[sel], aug[col]
+                pasos.append(f"Intercambio de fila {col+1} con fila {sel+1}")
+                pasos.append(Matrices._mat_to_str_frac(aug))
+            piv = aug[col][col]
+            for j in range(2*n):
+                aug[col][j] /= piv
+            pasos.append(f"Normalizando fila {col+1} por pivote {format_val(piv)}")
+            pasos.append(Matrices._mat_to_str_frac(aug))
+            for r in range(n):
+                if r != col:
+                    factor = aug[r][col]
+                    for j in range(2*n):
+                        aug[r][j] -= factor * aug[col][j]
+                    pasos.append(f"f{r+1} --> f{r+1} - ({format_val(factor)})*f{col+1}")
+                    pasos.append(Matrices._mat_to_str_frac(aug))
+        # Extraer inversa
+        inv = [row[n:] for row in aug]
+        pasos.append("Matriz inversa A^{-1}:")
+        pasos.append(Matrices._mat_to_str_frac(inv))
+        # Verificación AA^{-1} = I
+        verif = Matrices.multiply(mat, inv)
+        pasos.append("Verificación AA^{-1} = I:")
+        pasos.append(Matrices._mat_to_str_frac(verif))
+        return inv, pasos
+        
     """
     Clase que contiene:
       - Métodos para Gauss y Gauss-Jordan (lo que ya tenías).
@@ -96,14 +160,12 @@ class Matrices:
         pivotes = []
         row = 0
         for col in range(m):
-            sel = None
-            for r in range(row, n):
-                if abs(augmented[r][col]) > EPS:
-                    sel = r
-                    break
-            if sel is None:
+            # Selección de pivote con pivoteo parcial en la submatriz (row..n-1, col)
+            max_row = max(range(row, n), key=lambda r: abs(augmented[r][col])) if row < n else row
+            if row < n and abs(augmented[max_row][col]) < EPS:
                 pasos.append(f"No hay pivote en columna {col+1}, se salta.")
                 continue
+            sel = max_row
             if sel != row:
                 augmented[row], augmented[sel] = augmented[sel], augmented[row]
                 pasos.append(f"Intercambio de fila {row+1} con fila {sel+1}")
@@ -573,3 +635,84 @@ class Matrices:
         """
         Matrices._ensure_rectangular(A)
         return [[scalar * x for x in row] for row in A]
+
+    @staticmethod
+    def add_with_steps(A: List[List[float]], B: List[List[float]]):
+        """Suma A + B con pasos: devuelve (resultado, pasos:list[str])."""
+        Matrices._ensure_rectangular(A)
+        Matrices._ensure_rectangular(B)
+        if len(A) != len(B) or len(A[0]) != len(B[0]):
+            raise ValueError("Dimensiones incompatibles para suma.")
+        pasos = ["Suma de matrices elemento a elemento:"]
+        m = len(A)
+        n = len(A[0])
+        res = [[0.0]*n for _ in range(m)]
+        for i in range(m):
+            for j in range(n):
+                aij = A[i][j]
+                bij = B[i][j]
+                val = aij + bij
+                pasos.append(f"C[{i+1},{j+1}] = {format_val(aij)} + {format_val(bij)} = {format_val(val)}")
+                res[i][j] = val
+        return res, pasos
+
+    @staticmethod
+    def subtract_with_steps(A: List[List[float]], B: List[List[float]]):
+        """Resta A - B con pasos: devuelve (resultado, pasos:list[str])."""
+        Matrices._ensure_rectangular(A)
+        Matrices._ensure_rectangular(B)
+        if len(A) != len(B) or len(A[0]) != len(B[0]):
+            raise ValueError("Dimensiones incompatibles para resta.")
+        pasos = ["Resta de matrices elemento a elemento:"]
+        m = len(A)
+        n = len(A[0])
+        res = [[0.0]*n for _ in range(m)]
+        for i in range(m):
+            for j in range(n):
+                aij = A[i][j]
+                bij = B[i][j]
+                val = aij - bij
+                pasos.append(f"C[{i+1},{j+1}] = {format_val(aij)} - {format_val(bij)} = {format_val(val)}")
+                res[i][j] = val
+        return res, pasos
+
+    @staticmethod
+    def multiply_with_steps(A: List[List[float]], B: List[List[float]]):
+        """Multiplicación A*B con pasos elementales: devuelve (resultado, pasos:list[str])."""
+        Matrices._ensure_rectangular(A)
+        Matrices._ensure_rectangular(B)
+        m = len(A)
+        n = len(A[0])
+        n2 = len(B)
+        p = len(B[0])
+        if n != n2:
+            raise ValueError(f"No se puede multiplicar: A es {m}x{n} y B es {n2}x{p}.")
+        pasos = [f"Multiplicación de matrices A({m}x{n}) * B({n2}x{p}):"]
+        res = [[0.0]*p for _ in range(m)]
+        for i in range(m):
+            for j in range(p):
+                terms = []
+                s = 0.0
+                for k in range(n):
+                    a = A[i][k]
+                    b = B[k][j]
+                    terms.append(f"{format_val(a)}*{format_val(b)}")
+                    s += a*b
+                pasos.append(f"C[{i+1},{j+1}] = " + " + ".join(terms) + f" = {format_val(s)}")
+                res[i][j] = s
+        return res, pasos
+
+    @staticmethod
+    def multiply_scalar_with_steps(A: List[List[float]], scalar: float):
+        """Multiplica matriz por escalar con pasos: devuelve (resultado, pasos:list[str])."""
+        Matrices._ensure_rectangular(A)
+        pasos = [f"Multiplicación de matriz por escalar {format_val(scalar)}:"]
+        m = len(A)
+        n = len(A[0])
+        res = [[0.0]*n for _ in range(m)]
+        for i in range(m):
+            for j in range(n):
+                val = scalar * A[i][j]
+                pasos.append(f"C[{i+1},{j+1}] = {format_val(scalar)} * {format_val(A[i][j])} = {format_val(val)}")
+                res[i][j] = val
+        return res, pasos
